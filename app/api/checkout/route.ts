@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { getDb } from "@/lib/mongodb";
-import { getProductPriceForSize, type Product } from "@/lib/catalog";
+import { defaultProducts, getProductPriceForSize, type Product } from "@/lib/catalog";
 import { getShippingFeeByCommune } from "@/lib/shipping";
 import { getStripe } from "@/lib/stripe";
 
@@ -69,12 +69,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = await getDb();
     const productIds = Array.from(new Set(body.items.map((item) => item.id)));
-    const products = await db
-      .collection<Product>("products")
-      .find({ id: { $in: productIds } }, { projection: { _id: 0 } })
-      .toArray();
+    const useLocalCatalog = process.env.NODE_ENV === "production";
+    const db = await getDb();
+    const products = useLocalCatalog
+      ? defaultProducts.filter((product) => productIds.includes(product.id))
+      : await db
+          .collection<Product>("products")
+          .find({ id: { $in: productIds } }, { projection: { _id: 0 } })
+          .toArray();
 
     if (products.length !== productIds.length) {
       return NextResponse.json(

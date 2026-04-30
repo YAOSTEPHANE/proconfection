@@ -5,6 +5,10 @@ import { getDb } from "@/lib/mongodb";
 
 export async function GET() {
   try {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json(defaultProducts);
+    }
+
     const db = await getDb();
     const products = await db
       .collection<Product>("products")

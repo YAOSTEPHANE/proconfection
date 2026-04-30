@@ -19,17 +19,19 @@ const currency = new Intl.NumberFormat("fr-FR", {
 export default async function VenteFlashDetailPage({ params }: VenteFlashDetailPageProps) {
   const { id } = await params;
   let products = defaultProducts;
-  try {
-    const db = await getDb();
-    const data = await db
-      .collection<Product>("products")
-      .find({}, { projection: { _id: 0 } })
-      .toArray();
-    if (data.length > 0) {
-      products = data;
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      const db = await getDb();
+      const data = await db
+        .collection<Product>("products")
+        .find({}, { projection: { _id: 0 } })
+        .toArray();
+      if (data.length > 0) {
+        products = data;
+      }
+    } catch {
+      products = defaultProducts;
     }
-  } catch {
-    products = defaultProducts;
   }
 
   const product = products.find((item) => item.id === id);
