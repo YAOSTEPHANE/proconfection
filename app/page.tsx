@@ -61,26 +61,6 @@ function shortenLabel(label: string, maxLength = 26): string {
   return label.length > maxLength ? `${label.slice(0, maxLength - 1)}…` : label;
 }
 
-function mergeUniqueProducts(primary: Product[], secondary: Product[]): Product[] {
-  const byId = new Map<string, Product>();
-  for (const product of secondary) {
-    byId.set(product.id, product);
-  }
-  for (const product of primary) {
-    byId.set(product.id, product);
-  }
-  return Array.from(byId.values());
-}
-
-function ensureSixProducts(categoryItems: Product[], allProducts: Product[]): Product[] {
-  if (categoryItems.length >= 6) {
-    return categoryItems.slice(0, 6);
-  }
-  const usedIds = new Set(categoryItems.map((item) => item.id));
-  const fillers = allProducts.filter((item) => !usedIds.has(item.id)).slice(0, 6 - categoryItems.length);
-  return [...categoryItems, ...fillers];
-}
-
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string | "Tous">(
     "Tous",
@@ -267,7 +247,7 @@ export default function Home() {
         const productsResponse = await fetch("/api/products", { cache: "no-store" });
         const productsData = (await productsResponse.json()) as Product[] | { error?: string };
         if (productsResponse.ok && Array.isArray(productsData) && active) {
-          setProducts(mergeUniqueProducts(productsData, defaultProducts));
+          setProducts(productsData);
         } else if (active) {
           setProducts(defaultProducts);
         }
@@ -361,20 +341,18 @@ export default function Home() {
     [showAllSubcategories, subcategoryHighlights],
   );
   const productsByCategory = useMemo(() => {
-    const allProducts = mergeUniqueProducts(products, defaultProducts);
     return activeCategoryCards.map((category) => ({
       category: category.name,
       slug: category.slug,
-      items: ensureSixProducts(
-        [...allProducts].filter((product) => product.category === category.name).reverse(),
-        [...allProducts].reverse(),
-      ),
+      items: [...products]
+        .filter((product) => product.category === category.name)
+        .reverse()
+        .slice(0, 6),
     }));
   }, [activeCategoryCards, products]);
   const flashProducts = useMemo(
     () => {
-      const allProducts = mergeUniqueProducts(products, defaultProducts);
-      return ensureSixProducts([...allProducts].reverse(), allProducts);
+      return [...products].reverse().slice(0, 6);
     },
     [products],
   );
