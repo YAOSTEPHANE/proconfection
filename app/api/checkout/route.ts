@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "@/lib/mongodb";
 import { getProductPriceForSize, type Product } from "@/lib/catalog";
 import { getShippingFeeByCommune } from "@/lib/shipping";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 
 type CheckoutBody = {
   customerName: string;
@@ -136,6 +136,7 @@ export async function POST(request: Request) {
       });
     }
 
+    const stripe = getStripe();
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       success_url: `${appUrl}/commande/${orderId}?success=1&token=${publicToken}`,

@@ -1,11 +1,19 @@
 import Stripe from "stripe";
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+let stripeClient: Stripe | null = null;
 
-if (!stripeSecretKey) {
-  throw new Error("STRIPE_SECRET_KEY est manquant. Configure .env.local.");
+export function getStripe(): Stripe {
+  if (stripeClient) {
+    return stripeClient;
+  }
+
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecretKey) {
+    throw new Error("STRIPE_SECRET_KEY est manquant. Configure .env.local.");
+  }
+
+  stripeClient = new Stripe(stripeSecretKey, {
+    apiVersion: "2026-04-22.dahlia",
+  });
+  return stripeClient;
 }
-
-export const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: "2026-04-22.dahlia",
-});
