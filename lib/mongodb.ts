@@ -3,29 +3,30 @@ import { MongoClient, ServerApiVersion } from "mongodb";
 const uri = process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB_NAME ?? "proconfection";
 
-if (!uri) {
-  throw new Error("MONGODB_URI est manquant. Configure .env.local.");
-}
-
 declare global {
   var mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-});
+function getClientPromise(): Promise<MongoClient> {
+  if (!uri) {
+    throw new Error("MONGODB_URI est manquant. Configure .env.local.");
+  }
 
-const clientPromise = global.mongoClientPromise ?? client.connect();
+  if (!global.mongoClientPromise) {
+    const client = new MongoClient(uri, {
+      serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+      },
+    });
+    global.mongoClientPromise = client.connect();
+  }
 
-if (!global.mongoClientPromise) {
-  global.mongoClientPromise = clientPromise;
+  return global.mongoClientPromise;
 }
 
 export async function getDb() {
-  const connectedClient = await clientPromise;
+  const connectedClient = await getClientPromise();
   return connectedClient.db(dbName);
 }
