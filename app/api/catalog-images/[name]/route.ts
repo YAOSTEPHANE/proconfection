@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 const ASSETS_DIR = "C:/Users/UTILISATEUR/.cursor/projects/f-proconfection/assets";
 const ALLOWED_PREFIX =
   "c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_";
+const FALLBACK_IMAGE_PATH = path.join(process.cwd(), "public", "logo-proconfection.png");
 
 export async function GET(
   _request: Request,
@@ -35,6 +36,16 @@ export async function GET(
       },
     });
   } catch {
-    return NextResponse.json({ error: "Image introuvable." }, { status: 404 });
+    try {
+      const fallbackFile = await readFile(FALLBACK_IMAGE_PATH);
+      return new NextResponse(fallbackFile, {
+        headers: {
+          "content-type": "image/png",
+          "cache-control": "public, max-age=3600",
+        },
+      });
+    } catch {
+      return NextResponse.json({ error: "Image introuvable." }, { status: 404 });
+    }
   }
 }
