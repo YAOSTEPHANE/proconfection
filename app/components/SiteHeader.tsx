@@ -70,24 +70,28 @@ export default function SiteHeader() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-100 border-b bg-white/95 shadow-sm backdrop-blur">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-4">
-        <Link href="/" aria-label="Accueil ProConfection" className="inline-flex items-center gap-3">
+    <header className="sticky top-0 z-100 border-b border-slate-200 bg-white shadow-sm">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-3 py-3 sm:px-4">
+        <Link
+          href="/"
+          aria-label="Accueil ProConfection"
+          className="inline-flex items-center gap-3"
+        >
           <Image
             src="/logo-proconfection.png"
             alt="ProConfection Internationale"
             width={220}
             height={122}
-            className="h-12 w-auto"
+            className="h-10 w-auto"
             priority
           />
-          <div className="hidden lg:block">
-            <p className="text-sm font-bold text-slate-900">ProConfection</p>
-            <p className="text-xs text-slate-500">Mode, accessoires et beaute premium</p>
+          <div className="hidden sm:block">
+            <p className="text-sm font-bold leading-tight text-slate-900">ProConfection</p>
+            <p className="text-[11px] leading-tight text-slate-500">Uniformes et accessoires scolaires</p>
           </div>
         </Link>
 
-        <div className="order-3 w-full md:order-0 md:mx-auto md:w-80">
+        <div className="order-3 w-full md:order-0 md:mx-auto md:w-96">
           <div className="relative">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -147,7 +151,7 @@ export default function SiteHeader() {
           </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <div className="relative hidden lg:block">
             <button
               type="button"
@@ -190,7 +194,7 @@ export default function SiteHeader() {
           </Link>
           <Link
             href="/se-connecter"
-            className="cursor-pointer rounded-full border border-indigo-200 bg-indigo-50 px-4 py-1 text-sm font-medium text-indigo-700"
+            className="cursor-pointer rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 sm:px-4 sm:text-sm"
           >
             Se connecter
           </Link>

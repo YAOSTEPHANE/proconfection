@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
-import { defaultProducts, type Product } from "@/lib/catalog";
+import {
+  applySchoolPricingGrid,
+  DEFAULT_SCHOOL_PRICING_COEFFICIENTS,
+  defaultProducts,
+  type Product,
+  type SchoolPricingCoefficients,
+} from "@/lib/catalog";
 import { hasValidAdminSession } from "@/lib/auth";
 import { getDb } from "@/lib/mongodb";
 
 export async function GET() {
   try {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json(defaultProducts);
-    }
-
     const db = await getDb();
+    const pricingConfig = await db
+      .collection<{ id: "school-pricing"; coefficients: SchoolPricingCoefficients }>("app_settings")
+      .findOne({ id: "school-pricing" }, { projection: { _id: 0 } });
+    const coefficients = pricingConfig?.coefficients ?? DEFAULT_SCHOOL_PRICING_COEFFICIENTS;
     const products = await db
       .collection<Product>("products")
       .find({}, { projection: { _id: 0 } })
@@ -17,15 +23,15 @@ export async function GET() {
       .toArray();
 
     if (products.length === 0) {
-      await db.collection<Product>("products").insertMany(defaultProducts);
-      return NextResponse.json(defaultProducts);
+      const seededProducts = applySchoolPricingGrid(defaultProducts, coefficients);
+      await db.collection<Product>("products").insertMany(seededProducts);
+      return NextResponse.json(seededProducts);
     }
 
-    return NextResponse.json(products);
+    return NextResponse.json(applySchoolPricingGrid(products, coefficients));
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Connexion MongoDB impossible.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.warn("GET /api/products fallback vers defaultProducts:", error);
+    return NextResponse.json(defaultProducts);
   }
 }
 

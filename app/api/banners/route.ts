@@ -40,8 +40,8 @@ export async function GET() {
     }
     return NextResponse.json(banners);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Connexion MongoDB impossible.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.warn("GET /api/banners fallback vers defaultDashboardBanners:", error);
+    return NextResponse.json(defaultDashboardBanners);
   }
 }
 

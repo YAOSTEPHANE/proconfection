@@ -16,6 +16,18 @@ export type Product = {
   sizePrices?: Record<string, number>;
 };
 
+export type SchoolPricingCoefficients = {
+  jacquesPrevert: number;
+  blaisePascal: number;
+  jeanMermoz: number;
+};
+
+export const DEFAULT_SCHOOL_PRICING_COEFFICIENTS: SchoolPricingCoefficients = {
+  jacquesPrevert: 1,
+  blaisePascal: 1.06,
+  jeanMermoz: 1.1,
+};
+
 function parseNumericSize(size: string): number | null {
   const match = size.match(/\d+(?:[.,]\d+)?/);
   if (!match) {
@@ -110,267 +122,495 @@ export function getRemainingStock(productId: string): number {
   return (seed % 18) + 3;
 }
 
-export const defaultProducts: Product[] = [
+function withDiscount(price: number, discountPercentage: number): { oldPrice: number; discountPercentage: number } {
+  const safeDiscount = Math.max(1, Math.min(discountPercentage, 80));
+  return {
+    oldPrice: Math.round(price / (1 - safeDiscount / 100)),
+    discountPercentage: safeDiscount,
+  };
+}
+
+export function applySchoolPricingGrid(
+  products: Product[],
+  coefficients: SchoolPricingCoefficients = DEFAULT_SCHOOL_PRICING_COEFFICIENTS,
+): Product[] {
+  return products.map((product) => {
+    const lowerName = product.name.toLowerCase();
+    const lowerSubcategory = (product.subcategory ?? "").toLowerCase();
+    const schoolMultiplier =
+      product.category === "Blaise Pascal"
+        ? coefficients.blaisePascal
+        : product.category === "Jean Mermoz"
+          ? coefficients.jeanMermoz
+          : coefficients.jacquesPrevert;
+    const asSchoolPrice = (basePrice: number): number =>
+      Math.round((basePrice * schoolMultiplier) / 500) * 500;
+
+    if (product.category === "Accessoires") {
+      if (lowerName.includes("trousse")) {
+        const price = 7000;
+        return { ...product, price, ...withDiscount(price, 12) };
+      }
+      if (lowerSubcategory.includes("maternel")) {
+        const price = 15000;
+        return { ...product, price, ...withDiscount(price, 15) };
+      }
+      if (lowerSubcategory.includes("primaire")) {
+        const price = 18000;
+        return { ...product, price, ...withDiscount(price, 17) };
+      }
+      const price = 22000;
+      return { ...product, price, ...withDiscount(price, 18) };
+    }
+
+    if (lowerName.includes("sport")) {
+      const price = asSchoolPrice(12000);
+      return { ...product, price, ...withDiscount(price, 14) };
+    }
+
+    if (lowerName.includes("ensemble")) {
+      if (lowerSubcategory.includes("maternel")) {
+        const price = asSchoolPrice(26000);
+        return { ...product, price, ...withDiscount(price, 16) };
+      }
+      if (lowerSubcategory.includes("primaire")) {
+        const price = asSchoolPrice(32000);
+        return { ...product, price, ...withDiscount(price, 18) };
+      }
+      const price = asSchoolPrice(38000);
+      return { ...product, price, ...withDiscount(price, 19) };
+    }
+
+    if (
+      lowerName.includes("robe") ||
+      lowerName.includes("jupe") ||
+      lowerName.includes("blouse") ||
+      lowerName.includes("chemise") ||
+      lowerName.includes("pantalon")
+    ) {
+      if (lowerSubcategory.includes("maternel")) {
+        const price = asSchoolPrice(15000);
+        return { ...product, price, ...withDiscount(price, 14) };
+      }
+      if (lowerSubcategory.includes("primaire")) {
+        const price = asSchoolPrice(18000);
+        return { ...product, price, ...withDiscount(price, 16) };
+      }
+      const price = asSchoolPrice(22000);
+      return { ...product, price, ...withDiscount(price, 18) };
+    }
+
+    return product;
+  });
+}
+
+const seedProducts: Product[] = [
   {
-    id: "v-1",
-    name: "Robe Fleurie",
-    category: "Vetements",
-    subcategory: "Robes",
-    price: 49000,
+    id: "jp-garcon-chemise-manche-longue",
+    name: "Chemise blanche garcon manche longue",
+    category: "Jacques Prevert",
+    subcategory: "Primaire JP",
+    price: 16000,
+    oldPrice: 19000,
+    discountPercentage: 16,
     image:
-      "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?auto=format&fit=crop&w=900&q=80",
-    images: [
-      "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1200&q=80",
-    ],
-    description: "Robe legere en coton, coupe elegante pour tous les jours.",
-    sizes: ["S", "M", "L"],
-    sizePrices: {
-      S: 47000,
-      M: 49000,
-      L: 51000,
-    },
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9041-scaled-1-2c1f22a5-0475-44a3-b2ed-3b3c444a5bb7.png",
+    description: "Chemise blanche de tenue scolaire, coupe classique.",
+    sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
   },
   {
-    id: "v-2",
-    name: "Blazer Classique",
-    category: "Vetements",
-    subcategory: "Vestes",
-    price: 68000,
+    id: "jp-garcon-chemise-manche-longue-2",
+    name: "Chemise blanche garcon col classique",
+    category: "Jacques Prevert",
+    subcategory: "Primaire JP",
+    price: 16000,
     image:
-      "https://images.unsplash.com/photo-1591369822096-ffd140ec948f?auto=format&fit=crop&w=900&q=80",
-    description: "Blazer moderne pour un style chic au bureau.",
-    sizes: ["M", "L", "XL"],
-    sizePrices: {
-      M: 66000,
-      L: 68000,
-      XL: 71000,
-    },
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9038-scaled-1-e7045e5f-0d46-4d5f-9e22-ccd7c18bc91d.png",
+    description: "Chemise blanche facile a assortir avec pantalon ou jupe.",
+    sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
   },
   {
-    id: "c-1",
-    name: "Sneakers Urban",
-    category: "Chaussures",
-    subcategory: "Sneakers",
-    price: 75000,
+    id: "jp-fille-robe-bleue",
+    name: "Robe fille bleu carreaux",
+    category: "Jacques Prevert",
+    subcategory: "Maternel JP",
+    price: 18000,
+    oldPrice: 22000,
+    discountPercentage: 18,
     image:
-      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80",
-    description: "Sneakers confortables avec semelle amortissante.",
-    sizes: ["39", "40", "41", "42"],
-    sizePrices: {
-      "39": 73000,
-      "40": 75000,
-      "41": 77000,
-      "42": 79000,
-    },
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9067-scaled-1-1e3eaafb-f190-4eca-8126-5a7996dec1ea.png",
+    description: "Robe scolaire fille en tissu leger, style maternelle.",
+    sizes: ["3 ans", "4 ans", "5 ans", "6 ans"],
   },
   {
-    id: "s-1",
-    name: "Sac Cuir Premium",
-    category: "Sacs",
-    subcategory: "Main",
-    price: 89000,
-    image:
-      "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=900&q=80",
-    images: [
-      "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=1200&q=80",
-    ],
-    description: "Sac a main en cuir veritable avec grande capacite.",
-  },
-  {
-    id: "a-1",
-    name: "Montre Minimaliste",
-    category: "Accessoires",
-    subcategory: "Montres",
-    price: 39000,
-    image:
-      "https://images.unsplash.com/photo-1524592094714-0f0654e20314?auto=format&fit=crop&w=900&q=80",
-    description: "Montre elegante pour completer toutes vos tenues.",
-  },
-  {
-    id: "p-1",
-    name: "Parfum Signature",
-    category: "Produits",
-    subcategory: "Parfums",
+    id: "jp-garcon-look-complet-bleu",
+    name: "Ensemble garcon bleu (chemise + pantalon)",
+    category: "Jacques Prevert",
+    subcategory: "Primaire JP",
     price: 32000,
+    oldPrice: 39000,
+    discountPercentage: 18,
     image:
-      "https://images.unsplash.com/photo-1616949755610-8c9bbc08f138?auto=format&fit=crop&w=900&q=80",
-    description: "Parfum aux notes florales et boisees longue tenue.",
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9040-scaled-1-a44ad085-70a6-43fc-ade6-4e1237bd4396.png",
+    description: "Ensemble scolaire complet pour garcon.",
+    sizes: ["8 ans", "10 ans", "12 ans", "14 ans"],
   },
   {
-    id: "b-1",
-    name: "Collier Dore Elegant",
-    category: "Bijoux",
-    subcategory: "Colliers",
+    id: "jp-fille-pantalon-bleu",
+    name: "Pantalon bleu fille",
+    category: "Jacques Prevert",
+    subcategory: "College JM",
+    price: 15000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8974-scaled-1-02a01559-05ed-4b5f-bb3e-6f99a73b99ae.png",
+    description: "Pantalon scolaire fille avec coupe ajustee.",
+    sizes: ["10 ans", "12 ans", "14 ans", "16 ans"],
+  },
+  {
+    id: "bp-garcon-beige-court",
+    name: "Ensemble beige garcon manche courte",
+    category: "Blaise Pascal",
+    subcategory: "Tenues Garcons BP",
+    price: 28000,
+    oldPrice: 34000,
+    discountPercentage: 18,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8993-scaled-1-0a880a0d-de0e-414f-9e34-b12c3eac47be.png",
+    description: "Tenue scolaire beige garcon pour la saison chaude.",
+    sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
+  },
+  {
+    id: "bp-garcon-beige-court-2",
+    name: "Ensemble beige garcon style classique",
+    category: "Blaise Pascal",
+    subcategory: "Tenues Garcons BP",
     price: 28000,
     image:
-      "https://images.unsplash.com/photo-1611107683227-e9060eccd846?auto=format&fit=crop&w=900&q=80",
-    description: "Collier fin dore pour un style chic et raffine.",
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8992-scaled-1-e42cb7b5-d7d7-44bd-b8f2-dd6325887e35.png",
+    description: "Uniforme garcon beige avec short/pantalon selon taille.",
+    sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
   },
   {
-    id: "sp-1",
-    name: "Ensemble Fitness Femme",
-    category: "Sport",
-    subcategory: "Fitness",
-    price: 36000,
+    id: "bp-sport-garcon-blanc-bleu",
+    name: "Tenue sport garcon blanc et bleu",
+    category: "Blaise Pascal",
+    subcategory: "Tenues Sports BP",
+    price: 12000,
     image:
-      "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=900&q=80",
-    description: "Tenue respirante et confortable pour le sport quotidien.",
-    sizes: ["S", "M", "L"],
-    sizePrices: {
-      S: 34000,
-      M: 36000,
-      L: 38000,
-    },
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9092-scaled-1-c3099ec4-314f-4dbd-81fc-be4d8dc5c230.png",
+    description: "Tenue de sport scolaire pour garcon.",
+    sizes: ["8 ans", "10 ans", "12 ans", "14 ans"],
   },
   {
-    id: "e-1",
-    name: "T-shirt Enfant Confort",
-    category: "Enfants",
-    subcategory: "Garcon",
-    price: 14000,
-    image:
-      "https://images.unsplash.com/photo-1519238359922-989348752efb?auto=format&fit=crop&w=900&q=80",
-    description: "T-shirt doux et resistant, ideal pour les enfants actifs.",
-    sizes: ["4 ans", "6 ans", "8 ans"],
-    sizePrices: {
-      "4 ans": 13000,
-      "6 ans": 14000,
-      "8 ans": 15000,
-    },
-  },
-  {
-    id: "m-1",
-    name: "Coussin Deco Premium",
-    category: "Maison",
-    subcategory: "Decoration",
-    price: 18000,
-    image:
-      "https://images.unsplash.com/photo-1616486029423-aaa4789e8c9a?auto=format&fit=crop&w=900&q=80",
-    description: "Coussin decoratif moderne pour salon et chambre.",
-  },
-  {
-    id: "v-3",
-    name: "Chemise Lin Signature",
-    category: "Vetements",
-    subcategory: "Tenues pro",
-    price: 42000,
-    image:
-      "https://images.unsplash.com/photo-1591369822096-ffd140ec948f?auto=format&fit=crop&w=900&q=80",
-    description: "Chemise en lin respirant pour un look chic et leger.",
-    sizes: ["M", "L", "XL"],
-    sizePrices: {
-      M: 40000,
-      L: 42000,
-      XL: 45000,
-    },
-  },
-  {
-    id: "ch-2",
-    name: "Mocassins City Pro",
-    category: "Chaussures",
-    subcategory: "Ville",
-    price: 64000,
-    image:
-      "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&w=900&q=80",
-    description: "Mocassins souples et elegants pour vos sorties en ville.",
-    sizes: ["40", "41", "42", "43"],
-    sizePrices: {
-      "40": 62000,
-      "41": 64000,
-      "42": 66000,
-      "43": 68000,
-    },
-  },
-  {
-    id: "s-2",
-    name: "Sac Week-end Voyage",
-    category: "Sacs",
-    subcategory: "Voyage",
-    price: 73000,
-    image:
-      "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=900&q=80",
-    description: "Sac de voyage spacieux et resistant pour vos deplacements.",
-  },
-  {
-    id: "a-2",
-    name: "Lunettes Retro Chic",
+    id: "access-sac-hibou",
+    name: "Sac maternelle hibou bleu",
     category: "Accessoires",
-    subcategory: "Lunettes",
-    price: 27000,
+    subcategory: "Sac Maternel",
+    price: 16000,
+    oldPrice: 20000,
+    discountPercentage: 20,
     image:
-      "https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=900&q=80",
-    description: "Lunettes de soleil retro pour un style moderne.",
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Ban112-a96131ae-593c-4a61-8c21-854daad35e0b.png",
+    description: "Sac maternelle leger et confortable, design hibou.",
   },
   {
-    id: "p-2",
-    name: "Serum Eclat Nuit",
-    category: "Produits",
-    subcategory: "Soins",
+    id: "bp-sport-fille-blanc-bleu",
+    name: "Tenue sport fille blanc et bleu",
+    category: "Blaise Pascal",
+    subcategory: "Tenues Sports BP",
+    price: 12000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9097-scaled-1-7a9a16ac-9f22-4ba1-941a-6729f921727c.png",
+    description: "Tenue de sport legere pour fille.",
+    sizes: ["8 ans", "10 ans", "12 ans", "14 ans"],
+  },
+  {
+    id: "bp-sport-garcon-blanc-bleu-2",
+    name: "Tenue sport garcon logo ecole",
+    category: "Blaise Pascal",
+    subcategory: "Tenues Sports BP",
+    price: 12000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9093-scaled-1-142f7e72-8052-48db-b306-3cdec91c4a6b.png",
+    description: "T-shirt et short pour activites sportives.",
+    sizes: ["8 ans", "10 ans", "12 ans", "14 ans"],
+  },
+  {
+    id: "bp-garcon-beige-short",
+    name: "Tenue beige garcon short",
+    category: "Blaise Pascal",
+    subcategory: "Tenues Garcons BP",
     price: 25000,
     image:
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=900&q=80",
-    description: "Serum de nuit hydratant pour une peau plus lumineuse.",
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9082-scaled-c3fdd410-eff6-4d52-b4ca-28b71cd653e4.png",
+    description: "Uniforme garcon beige avec short.",
+    sizes: ["5 ans", "6 ans", "7 ans", "8 ans"],
   },
   {
-    id: "b-2",
-    name: "Bracelet Or Rose",
-    category: "Bijoux",
-    subcategory: "Bracelets",
-    price: 31000,
+    id: "bp-garcon-beige-short-2",
+    name: "Tenue beige garcon primaire",
+    category: "Blaise Pascal",
+    subcategory: "Tenues Garcons BP",
+    price: 25000,
     image:
-      "https://images.unsplash.com/photo-1611652022419-a9419f74343d?auto=format&fit=crop&w=900&q=80",
-    description: "Bracelet fin en or rose, discret et raffine.",
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8949-scaled-6950d7c3-dada-45d3-8f43-4c7a54a43db4.png",
+    description: "Ensemble tenue scolaire beige pour primaire.",
+    sizes: ["5 ans", "6 ans", "7 ans", "8 ans"],
   },
   {
-    id: "sp-2",
-    name: "Chaussures Running Air",
-    category: "Sport",
-    subcategory: "Running",
-    price: 58000,
+    id: "bp-garcon-beige-cargo",
+    name: "Pantalon cargo beige garcon",
+    category: "Blaise Pascal",
+    subcategory: "Tenues Garcons BP",
+    price: 14000,
     image:
-      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80",
-    images: [
-      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1608231387042-66d1773070a5?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1460353581641-37baddab0fa2?auto=format&fit=crop&w=1200&q=80",
-    ],
-    description: "Chaussures de running legeres avec bon amorti.",
-    sizes: ["39", "40", "41", "42"],
-    sizePrices: {
-      "39": 56000,
-      "40": 58000,
-      "41": 60000,
-      "42": 62000,
-    },
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9081-scaled-fdeceb43-1c11-46a2-9f46-332519c11764.png",
+    description: "Pantalon cargo beige robuste pour usage quotidien.",
+    sizes: ["8 ans", "10 ans", "12 ans", "14 ans"],
   },
   {
-    id: "e-2",
-    name: "Robe Fille Fleurie",
-    category: "Enfants",
-    subcategory: "Fille",
+    id: "bp-fille-rose-maternelle",
+    name: "Robe rose maternelle",
+    category: "Blaise Pascal",
+    subcategory: "Tenues Filles BP",
+    price: 17000,
+    oldPrice: 21000,
+    discountPercentage: 19,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8950-scaled-64a907ed-29ec-40ff-8b84-9f84278e776e.png",
+    description: "Robe fille rose a carreaux pour maternelle.",
+    sizes: ["3 ans", "4 ans", "5 ans", "6 ans"],
+  },
+  {
+    id: "bp-fille-rose-sans-manches",
+    name: "Robe rose fille sans manches",
+    category: "Blaise Pascal",
+    subcategory: "Tenues Filles BP",
+    price: 18000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8934-scaled-dad7623b-ebb6-4e5d-abc1-b1663dd67ccc.png",
+    description: "Robe rose style classique avec finitions blanches.",
+    sizes: ["4 ans", "5 ans", "6 ans", "7 ans"],
+  },
+  {
+    id: "bp-fille-rose-col",
+    name: "Robe rose fille col rond",
+    category: "Blaise Pascal",
+    subcategory: "Tenues Filles BP",
+    price: 18000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8931-scaled-9ce5019e-b5b8-4c3a-88a6-2ad8a1d91dac.png",
+    description: "Robe rose a carreaux, coupe confortable.",
+    sizes: ["4 ans", "5 ans", "6 ans", "7 ans"],
+  },
+  {
+    id: "jp-fille-chemise-blanche",
+    name: "Chemise blanche fille manches courtes",
+    category: "Jacques Prevert",
+    subcategory: "College JM",
+    price: 15000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8987-scaled-5dd0a93e-93b2-4dff-aca9-799cf9866408.png",
+    description: "Chemise blanche fille avec coupe ajustee.",
+    sizes: ["10 ans", "12 ans", "14 ans", "16 ans"],
+  },
+  {
+    id: "jp-fille-chemise-blanche-portrait",
+    name: "Chemise blanche fille uniforme",
+    category: "Jacques Prevert",
+    subcategory: "College JM",
+    price: 15000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8951-scaled-fd5c8fde-e9e9-48ed-a578-6218d1a27f4b.png",
+    description: "Chemise blanche scolaire pour college/lycee.",
+    sizes: ["10 ans", "12 ans", "14 ans", "16 ans"],
+  },
+  {
+    id: "jp-fille-robe-bleu-modele-2",
+    name: "Robe bleue fille poches blanches",
+    category: "Jacques Prevert",
+    subcategory: "Primaire JP",
     price: 19000,
     image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80",
-    description: "Robe legere et confortable pour les occasions speciales.",
-    sizes: ["6 ans", "8 ans", "10 ans"],
-    sizePrices: {
-      "6 ans": 18000,
-      "8 ans": 19000,
-      "10 ans": 21000,
-    },
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9025-scaled-1-05bc1b16-e8c0-443e-b4c4-20fa9d7c10db.png",
+    description: "Robe bleue a carreaux avec poches, modele primaire.",
+    sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
   },
   {
-    id: "m-2",
-    name: "Lampe Design Salon",
-    category: "Maison",
-    subcategory: "Salon",
-    price: 34000,
+    id: "jp-fille-robe-bleu-modele-3",
+    name: "Robe bleue fille a volant",
+    category: "Jacques Prevert",
+    subcategory: "Primaire JP",
+    price: 19000,
     image:
-      "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=900&q=80",
-    description: "Lampe moderne pour une ambiance chaleureuse dans le salon.",
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9024-scaled-1-3f6a27d2-9db4-4904-be21-b68673aa13fb.png",
+    description: "Robe scolaire bleu marine avec finitions soignes.",
+    sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
+  },
+  {
+    id: "access-trousse-3-compartiments",
+    name: "Trousse 3 compartiments",
+    category: "Accessoires",
+    subcategory: "Sac Primaire",
+    price: 6500,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9139-scaled-1-54c98527-56ce-427e-a323-e76425884335.png",
+    description: "Trousse scolaire multi-poches pour stylos et accessoires.",
+  },
+  {
+    id: "bp-fille-bleu-robe-moderne",
+    name: "Robe bleu marine fille moderne",
+    category: "Blaise Pascal",
+    subcategory: "Tenues Filles BP",
+    price: 21000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9069-scaled-1-bca8a333-ee15-45ee-b90a-b8ac061ff177.png",
+    description: "Robe bleue avec details volants pour fille.",
+    sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
+  },
+  {
+    id: "jm-fille-bleu-robe-longue",
+    name: "Robe bleue fille coupe ample",
+    category: "Jean Mermoz",
+    subcategory: "Primaire JM",
+    price: 20000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9004-scaled-ad50b309-4664-412c-ba34-7d4919c26621.png",
+    description: "Robe confortable avec coupe ample et poches.",
+    sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
+  },
+  {
+    id: "jm-fille-bleu-robe-col-rond",
+    name: "Robe bleue fille col rond",
+    category: "Jean Mermoz",
+    subcategory: "College JM",
+    price: 22000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_1175-scaled-89ecc488-29ca-4a3d-8573-c9f3b06f8870.png",
+    description: "Robe bleu marine pour tenue quotidienne.",
+    sizes: ["10 ans", "12 ans", "14 ans", "16 ans"],
+  },
+  {
+    id: "jm-fille-blouse-blanche",
+    name: "Blouse blanche fille",
+    category: "Jean Mermoz",
+    subcategory: "College JM",
+    price: 15000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8944-scaled-03746593-8011-49c6-bc14-095e92dd3f76.png",
+    description: "Blouse blanche manches courtes style college.",
+    sizes: ["10 ans", "12 ans", "14 ans", "16 ans"],
+  },
+  {
+    id: "jm-garcon-chemise-bleue",
+    name: "Chemise bleue garcon primaire",
+    category: "Jean Mermoz",
+    subcategory: "Primaire JM",
+    price: 15500,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9119-scaled-1dac07db-61b7-4e94-952a-19402accfd7c.png",
+    description: "Chemise a carreaux bleus pour garcon.",
+    sizes: ["5 ans", "6 ans", "7 ans", "8 ans"],
+  },
+  {
+    id: "jm-garcon-chemise-bleue-2",
+    name: "Chemise bleue garcon manches courtes",
+    category: "Jean Mermoz",
+    subcategory: "Primaire JM",
+    price: 15500,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9105-scaled-9b8c89fa-96f8-4b8c-b484-532b460818a1.png",
+    description: "Chemise scolaire bleue a petits carreaux.",
+    sizes: ["5 ans", "6 ans", "7 ans", "8 ans"],
+  },
+  {
+    id: "jm-fille-bleu-jupe-bretelles",
+    name: "Jupe bleue fille a bretelles",
+    category: "Jean Mermoz",
+    subcategory: "Maternel JM",
+    price: 18000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8923-scaled-5f4ff306-897d-4201-bb60-aa134d39e752.png",
+    description: "Jupe uniforme avec bretelles croisees.",
+    sizes: ["4 ans", "5 ans", "6 ans", "7 ans"],
+  },
+  {
+    id: "jm-fille-bleu-jupe-bretelles-dos",
+    name: "Jupe bleue fille vue dos",
+    category: "Jean Mermoz",
+    subcategory: "Maternel JM",
+    price: 18000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8960-scaled-83769a1f-d4f0-4905-93f1-8295f53865bb.png",
+    description: "Version dos de la jupe bretelles, meme tissu.",
+    sizes: ["4 ans", "5 ans", "6 ans", "7 ans"],
+  },
+  {
+    id: "access-sac-frozen-rose",
+    name: "Sac scolaire rose Frozen",
+    category: "Accessoires",
+    subcategory: "Sac Primaire",
+    price: 15000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-3-70535e30-82f8-4cc4-8496-75eb52d12023.png",
+    description: "Sac primaire rose avec motif Frozen.",
+  },
+  {
+    id: "access-sac-princess-violet",
+    name: "Sac scolaire princess violet",
+    category: "Accessoires",
+    subcategory: "Sac Primaire",
+    price: 16500,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-59-79a99657-7edf-4567-a029-3375f3e4e524.png",
+    description: "Sac primaire avec compartiments multiples.",
+  },
+  {
+    id: "access-sac-mickey-noir-orange",
+    name: "Sac college Mickey noir orange",
+    category: "Accessoires",
+    subcategory: "Sac College & Lycee",
+    price: 19000,
+    oldPrice: 24000,
+    discountPercentage: 21,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-11-22899e03-78b4-4293-8977-cd7236b2dba5.png",
+    description: "Sac solide pour college avec grande capacite.",
+  },
+  {
+    id: "access-sac-patpatrouille",
+    name: "Sac primaire Pat Patrouille",
+    category: "Accessoires",
+    subcategory: "Sac Primaire",
+    price: 17000,
+    oldPrice: 21000,
+    discountPercentage: 19,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-9-a6e2f998-f97b-4d24-8e25-39b703036292.png",
+    description: "Sac scolaire enfant avec poches laterales.",
+  },
+  {
+    id: "access-sac-boboi-boy",
+    name: "Sac scolaire Boboiboy",
+    category: "Accessoires",
+    subcategory: "Sac Primaire",
+    price: 17000,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-7-b296b07b-8eca-4c26-8e24-0bc6853cd772.png",
+    description: "Sac primaire avec fermeture zip et poche frontale.",
+  },
+  {
+    id: "access-sac-princess-rose-turquoise",
+    name: "Sac princess rose turquoise",
+    category: "Accessoires",
+    subcategory: "Sac Primaire",
+    price: 17500,
+    oldPrice: 22000,
+    discountPercentage: 20,
+    image:
+      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-10-837f4dce-5ca9-4efc-b8ca-8a2fe4e691a4.png",
+    description: "Sac scolaire fille avec grand compartiment central.",
   },
 ];
+
+export const defaultProducts: Product[] = applySchoolPricingGrid(seedProducts);

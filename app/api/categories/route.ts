@@ -43,9 +43,8 @@ export async function GET() {
 
     return NextResponse.json(categories);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Connexion MongoDB impossible.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.warn("GET /api/categories fallback vers defaultDashboardCategories:", error);
+    return NextResponse.json(defaultDashboardCategories);
   }
 }
 

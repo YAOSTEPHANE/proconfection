@@ -155,7 +155,7 @@ export default function PanierPage() {
 
   return (
     <main className="mx-auto max-w-5xl space-y-6 px-4 py-8">
-      <header className="flex items-center justify-between">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Votre panier</h1>
         <Link
           href="/"
@@ -171,19 +171,19 @@ export default function PanierPage() {
           Votre panier est vide.
         </section>
       ) : (
-        <section className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="space-y-4">
             {cart.map((item) => (
               <article
                 key={`${item.id}-${item.selectedSize ?? "taille-unique"}`}
-                className="flex items-center gap-4 rounded-xl bg-white p-4 shadow-sm"
+                className="flex flex-col gap-3 rounded-xl bg-white p-4 shadow-sm sm:flex-row sm:items-center"
               >
                 <Image
                   src={item.image}
                   alt={item.name}
                   width={120}
                   height={80}
-                  className="h-20 w-28 rounded object-cover"
+                  className="h-36 w-full rounded object-cover sm:h-20 sm:w-28"
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs uppercase text-slate-500">{item.category}</p>
@@ -193,7 +193,7 @@ export default function PanierPage() {
                   ) : null}
                   <p className="text-sm text-slate-600">{currency.format(item.price)}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 self-start sm:self-auto">
                   <button
                     onClick={() => changeQuantity(item.id, item.selectedSize, -1)}
                     className="h-8 w-8 rounded bg-slate-100"
@@ -228,7 +228,7 @@ export default function PanierPage() {
                     </svg>
                   </button>
                 </div>
-                <p className="w-24 text-right font-semibold">
+                <p className="w-full text-left font-semibold sm:w-24 sm:text-right">
                   {currency.format(item.price * item.quantity)}
                 </p>
               </article>

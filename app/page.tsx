@@ -8,6 +8,7 @@ import {
   categories,
   categoryImageMap,
   categorySubcategoriesMap,
+  categoryToSlug,
   defaultProducts,
   getProductPriceForSize,
   getRemainingStock,
@@ -301,7 +302,7 @@ export default function Home() {
         : categories.map((category) => ({
             id: `fallback-${category}`,
             name: category,
-            slug: category.toLowerCase(),
+            slug: categoryToSlug(category),
             image: categoryImageMap[category],
             isActive: true,
             createdAt: "",
@@ -462,14 +463,14 @@ export default function Home() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-900">
       <section className="mx-auto max-w-7xl px-4 pt-4">
-        <div className="mx-auto mb-4 flex max-w-7xl items-stretch gap-4">
+        <div className="mx-auto mb-4 flex max-w-7xl flex-col items-stretch gap-4 xl:flex-row">
           <CategoryHoverMenu
             className="hidden self-stretch lg:block"
             categoryList={activeCategoryCards}
             productsList={products}
           />
 
-          <div className="relative h-96 w-full max-w-[760px] overflow-hidden rounded-2xl p-6 text-white shadow-lg">
+          <div className="relative h-80 w-full overflow-hidden rounded-2xl p-5 text-white shadow-lg sm:h-96 sm:p-6 xl:max-w-[760px]">
             <Image
               src={bannerSlides[bannerIndex].image}
               alt={bannerSlides[bannerIndex].title}
@@ -519,7 +520,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="hidden w-72 shrink-0 lg:flex lg:flex-col lg:gap-4">
+          <div className="hidden shrink-0 gap-4 md:grid md:grid-cols-2 xl:flex xl:w-72 xl:grid-cols-none xl:flex-col">
             <div className="relative h-44 w-full overflow-hidden rounded-2xl shadow-lg">
               <Image
                 src={sideBanners[0].image}
@@ -570,7 +571,7 @@ export default function Home() {
               </button>
             ) : null}
           </div>
-          <div className="grid grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 md:grid-cols-5">
+          <div className="grid grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {displayedSubcategoryHighlights.map((subcategory) => (
               <Link
                 key={`hero-subcat-${subcategory.id}`}
@@ -578,7 +579,7 @@ export default function Home() {
                   activeCategoryCards.find((entry) => entry.name === subcategory.parentCategory)?.slug ??
                   subcategory.parentCategory.toLowerCase().replace(/\s+/g, "-")
                 }?subcategory=${encodeURIComponent(subcategory.name)}`}
-                className="group flex w-[128px] cursor-pointer flex-col items-center gap-1.5 rounded-2xl px-2 py-2 text-center opacity-90 transition duration-200 hover:-translate-y-0.5 hover:opacity-100"
+                className="group flex w-full max-w-[128px] cursor-pointer flex-col items-center gap-1.5 rounded-2xl px-2 py-2 text-center opacity-90 transition duration-200 hover:-translate-y-0.5 hover:opacity-100"
               >
                 <div
                   className="h-20 w-20 overflow-hidden rounded-full border-2 border-slate-200 p-0.5 transition duration-200 group-hover:scale-105 group-hover:shadow-md"
@@ -618,7 +619,7 @@ export default function Home() {
               Voir plus
             </Link>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
             {flashProducts.map((product, index) => {
               const selectedSize = selectedSizes[product.id] ?? "";
               const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
@@ -751,7 +752,7 @@ export default function Home() {
                 {group.items.length === 0 ? (
                   <p className="text-sm text-slate-500">Aucun produit pour cette categorie.</p>
                 ) : (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                  <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
                     {group.items.map((product) => {
                       const selectedSize = selectedSizes[product.id] ?? "";
                       const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
@@ -944,7 +945,7 @@ export default function Home() {
             className="cursor-pointer flex-1 bg-slate-950/50 backdrop-blur-sm transition-opacity"
             onClick={() => setIsCartOpen(false)}
           />
-          <aside className="h-full w-[320px] max-w-full overflow-y-auto border-l border-white/20 bg-linear-to-b from-slate-900 via-slate-950 to-black p-5 text-slate-100 shadow-2xl">
+          <aside className="h-full w-full overflow-y-auto border-l border-white/20 bg-linear-to-b from-slate-900 via-slate-950 to-black p-5 text-slate-100 shadow-2xl sm:w-[360px]">
             <div className="mb-4 border-b border-white/10 pb-4">
               <div className="mb-3 flex items-center justify-between">
                 <div>

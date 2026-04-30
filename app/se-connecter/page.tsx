@@ -47,9 +47,12 @@ export default function LoginPage() {
             alt="ProConfection Internationale"
             width={220}
             height={120}
-            className="h-14 w-auto"
+            className="h-10 w-auto"
             priority
           />
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">
+            ProConfection
+          </p>
           <h1 className="mt-4 text-center text-2xl font-bold text-slate-900">
             Se connecter
           </h1>

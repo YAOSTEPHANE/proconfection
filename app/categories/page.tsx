@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   categories,
   categoryImageMap,
+  categoryToSlug,
   defaultProducts,
   type Product,
 } from "@/lib/catalog";
@@ -48,7 +49,7 @@ export default function CategoriesPage() {
         : categories.map((category) => ({
             id: `fallback-${category}`,
             name: category,
-            slug: category.toLowerCase(),
+            slug: categoryToSlug(category),
             image: categoryImageMap[category],
             isActive: true,
             createdAt: "",

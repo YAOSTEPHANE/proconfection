@@ -2,14 +2,17 @@
 
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import { useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  DEFAULT_SCHOOL_PRICING_COEFFICIENTS,
   categories,
   categoryImageMap,
   categorySubcategoriesMap,
   categoryToSlug,
   defaultProducts,
+  type SchoolPricingCoefficients,
   type Product,
 } from "@/lib/catalog";
 import type { DashboardBanner, DashboardCategory } from "@/lib/dashboard-content";
@@ -96,6 +99,7 @@ type BannerForm = {
 
 type DashboardSection =
   | "overview"
+  | "pricing"
   | "products"
   | "categories"
   | "banners"
@@ -180,6 +184,11 @@ export default function AdminClient() {
   const [activeSection, setActiveSection] = useState<DashboardSection>("overview");
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
+  const [pricingCoefficients, setPricingCoefficients] = useState<SchoolPricingCoefficients>(
+    DEFAULT_SCHOOL_PRICING_COEFFICIENTS,
+  );
+  const [pricingLoading, setPricingLoading] = useState(true);
+  const [pricingSaving, setPricingSaving] = useState(false);
   const availableProductCategories = categories;
   const availableProductSubcategories = useMemo(
     () => categorySubcategoriesMap[form.category] ?? [],
@@ -277,6 +286,48 @@ export default function AdminClient() {
                   : "h-6",
     }));
   }, [orders]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadPricingConfig() {
+      setPricingLoading(true);
+      try {
+        const response = await fetch("/api/pricing-config");
+        const data = (await response.json()) as {
+          coefficients?: Partial<SchoolPricingCoefficients>;
+        };
+        if (active && response.ok && data.coefficients) {
+          setPricingCoefficients({
+            jacquesPrevert:
+              typeof data.coefficients.jacquesPrevert === "number"
+                ? data.coefficients.jacquesPrevert
+                : DEFAULT_SCHOOL_PRICING_COEFFICIENTS.jacquesPrevert,
+            blaisePascal:
+              typeof data.coefficients.blaisePascal === "number"
+                ? data.coefficients.blaisePascal
+                : DEFAULT_SCHOOL_PRICING_COEFFICIENTS.blaisePascal,
+            jeanMermoz:
+              typeof data.coefficients.jeanMermoz === "number"
+                ? data.coefficients.jeanMermoz
+                : DEFAULT_SCHOOL_PRICING_COEFFICIENTS.jeanMermoz,
+          });
+        }
+      } catch {
+        if (active) {
+          setPricingCoefficients(DEFAULT_SCHOOL_PRICING_COEFFICIENTS);
+        }
+      } finally {
+        if (active) {
+          setPricingLoading(false);
+        }
+      }
+    }
+    void loadPricingConfig();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
     let active = true;
 
@@ -811,6 +862,36 @@ export default function AdminClient() {
     });
   }
 
+  async function savePricingConfig(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPricingSaving(true);
+    try {
+      const response = await fetch("/api/pricing-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coefficients: pricingCoefficients }),
+      });
+      const data = (await response.json()) as {
+        coefficients?: SchoolPricingCoefficients;
+        error?: string;
+      };
+      if (!response.ok || !data.coefficients) {
+        throw new Error(data.error ?? "Sauvegarde impossible.");
+      }
+      setPricingCoefficients(data.coefficients);
+      setError(null);
+      const refreshedProducts = await fetch("/api/products", { cache: "no-store" });
+      const productsData = (await refreshedProducts.json()) as Product[] | { error?: string };
+      if (refreshedProducts.ok && Array.isArray(productsData)) {
+        setItems(productsData);
+      }
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Erreur sauvegarde coefficients.");
+    } finally {
+      setPricingSaving(false);
+    }
+  }
+
   async function submitUserForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (
@@ -1032,14 +1113,24 @@ export default function AdminClient() {
     <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 md:px-6">
       <header className="overflow-hidden rounded-3xl border border-indigo-100 bg-linear-to-br from-slate-950 via-indigo-950 to-violet-900 p-6 text-white shadow-2xl shadow-indigo-950/20">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo-proconfection.png"
+              alt="ProConfection Internationale"
+              width={180}
+              height={100}
+              className="h-9 w-auto"
+              priority
+            />
+            <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-200">
               Tableau de bord
             </p>
             <h1 className="mt-1 text-2xl font-bold md:text-3xl">Administration ProConfection</h1>
-            <p className="mt-1 text-sm text-indigo-100">
+            <p className="mt-1 text-sm text-indigo-100/90">
               Produits actifs: <strong>{totalProducts}</strong>
             </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Link
@@ -1072,6 +1163,7 @@ export default function AdminClient() {
           <nav className="space-y-1">
             {[
               { id: "overview", label: "Vue d'ensemble" },
+              { id: "pricing", label: "Tarification" },
               { id: "products", label: "Produits" },
               { id: "categories", label: "Categories" },
               { id: "banners", label: "Bannieres" },
@@ -1266,6 +1358,86 @@ export default function AdminClient() {
             <p>Panier moyen: <strong>{orders.length > 0 ? currency.format(orders.reduce((sum, order) => sum + order.total, 0) / orders.length) : currency.format(0)}</strong></p>
           </div>
         </article>
+      </section>
+
+      <section
+        id="dashboard-pricing"
+        className={`${activeSection === "pricing" ? "block" : "hidden"} rounded-2xl border border-slate-200 bg-white p-5 shadow-sm`}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Tarification par ecole</h2>
+          <span className="text-xs text-slate-500">Coefficients appliques a la grille automatique</span>
+        </div>
+        <form onSubmit={savePricingConfig} className="grid gap-3 md:grid-cols-3">
+          <label className="space-y-1 text-sm text-slate-700">
+            <span>Jacques Prevert</span>
+            <input
+              type="number"
+              min={0.7}
+              max={1.5}
+              step={0.01}
+              value={pricingCoefficients.jacquesPrevert}
+              onChange={(event) =>
+                setPricingCoefficients((previous) => ({
+                  ...previous,
+                  jacquesPrevert: Number(event.target.value),
+                }))
+              }
+              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="space-y-1 text-sm text-slate-700">
+            <span>Blaise Pascal</span>
+            <input
+              type="number"
+              min={0.7}
+              max={1.5}
+              step={0.01}
+              value={pricingCoefficients.blaisePascal}
+              onChange={(event) =>
+                setPricingCoefficients((previous) => ({
+                  ...previous,
+                  blaisePascal: Number(event.target.value),
+                }))
+              }
+              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="space-y-1 text-sm text-slate-700">
+            <span>Jean Mermoz</span>
+            <input
+              type="number"
+              min={0.7}
+              max={1.5}
+              step={0.01}
+              value={pricingCoefficients.jeanMermoz}
+              onChange={(event) =>
+                setPricingCoefficients((previous) => ({
+                  ...previous,
+                  jeanMermoz: Number(event.target.value),
+                }))
+              }
+              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="md:col-span-3 flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={pricingLoading || pricingSaving}
+              className="rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {pricingSaving ? "Sauvegarde..." : "Enregistrer les coefficients"}
+            </button>
+            <button
+              type="button"
+              disabled={pricingSaving}
+              onClick={() => setPricingCoefficients(DEFAULT_SCHOOL_PRICING_COEFFICIENTS)}
+              className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 disabled:opacity-60"
+            >
+              Reinitialiser
+            </button>
+          </div>
+        </form>
       </section>
 
       <section

@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   defaultProducts,
   getProductPriceForSize,
+  slugToCategory,
   type Product,
 } from "@/lib/catalog";
 import type { DashboardCategory } from "@/lib/dashboard-content";
@@ -73,9 +74,17 @@ export default function CategoryDetailPage() {
   }, []);
 
   const selectedCategory = useMemo(
-    () =>
-      dynamicCategories.find((category) => category.slug === slug)?.name ??
-      slug.charAt(0).toUpperCase() + slug.slice(1),
+    () => {
+      const fromDynamic = dynamicCategories.find((category) => category.slug === slug)?.name;
+      if (fromDynamic) {
+        return fromDynamic;
+      }
+      const fromCatalog = slugToCategory(slug);
+      if (fromCatalog) {
+        return fromCatalog;
+      }
+      return slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, " ");
+    },
     [dynamicCategories, slug],
   );
   const categoryProducts = useMemo(
@@ -87,6 +96,22 @@ export default function CategoryDetailPage() {
           (!selectedSubcategory || product.subcategory === selectedSubcategory),
       ),
     [products, selectedCategory, selectedSubcategory, slug],
+  );
+  const availableSubcategories = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          products
+            .filter(
+              (product) =>
+                product.category.toLowerCase() === selectedCategory.toLowerCase() &&
+                typeof product.subcategory === "string" &&
+                product.subcategory.trim().length > 0,
+            )
+            .map((product) => product.subcategory as string),
+        ),
+      ),
+    [products, selectedCategory],
   );
 
   if (!slug || categoryProducts.length === 0) {
@@ -107,6 +132,33 @@ export default function CategoryDetailPage() {
           Voir toutes les categories
         </Link>
         <h1 className="text-2xl font-bold">{selectedCategory}</h1>
+        {availableSubcategories.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/categories/${slug}`}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                selectedSubcategory
+                  ? "border border-slate-300 text-slate-600 hover:bg-slate-50"
+                  : "bg-indigo-600 text-white"
+              }`}
+            >
+              Toutes
+            </Link>
+            {availableSubcategories.map((subcategory) => (
+              <Link
+                key={`subcategory-filter-${subcategory}`}
+                href={`/categories/${slug}?subcategory=${encodeURIComponent(subcategory)}`}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  selectedSubcategory === subcategory
+                    ? "bg-indigo-600 text-white"
+                    : "border border-slate-300 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {subcategory}
+              </Link>
+            ))}
+          </div>
+        ) : null}
         {selectedSubcategory ? (
           <p className="text-sm font-medium text-indigo-700">
             Sous-categorie: {selectedSubcategory}
