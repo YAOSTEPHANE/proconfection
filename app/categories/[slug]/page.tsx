@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
+  categoryToSlug,
   defaultProducts,
   getProductPriceForSize,
   slugToCategory,
@@ -19,6 +20,16 @@ const currency = new Intl.NumberFormat("fr-FR", {
 });
 
 const FALLBACK_IMAGE = "/logo-proconfection.png";
+
+function normalizeSlugLike(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 function getDisplayDiscount(product: Product, fallbackDiscount: number): number {
   if (typeof product.discountPercentage === "number" && product.discountPercentage > 0) {
@@ -75,7 +86,13 @@ export default function CategoryDetailPage() {
 
   const selectedCategory = useMemo(
     () => {
-      const fromDynamic = dynamicCategories.find((category) => category.slug === slug)?.name;
+      const normalizedSlug = normalizeSlugLike(slug);
+      const fromDynamic = dynamicCategories.find(
+        (category) =>
+          normalizeSlugLike(category.slug) === normalizedSlug ||
+          normalizeSlugLike(category.name) === normalizedSlug ||
+          normalizeSlugLike(categoryToSlug(category.name)) === normalizedSlug,
+      )?.name;
       if (fromDynamic) {
         return fromDynamic;
       }
@@ -83,18 +100,32 @@ export default function CategoryDetailPage() {
       if (fromCatalog) {
         return fromCatalog;
       }
+      const fromProductCategory = products.find(
+        (product) => normalizeSlugLike(product.category) === normalizedSlug,
+      )?.category;
+      if (fromProductCategory) {
+        return fromProductCategory;
+      }
       return slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, " ");
     },
-    [dynamicCategories, slug],
+    [dynamicCategories, products, slug],
   );
   const categoryProducts = useMemo(
-    () =>
-      products.filter(
-        (product) =>
-          (product.category.toLowerCase() === slug.toLowerCase() ||
-            product.category === selectedCategory) &&
-          (!selectedSubcategory || product.subcategory === selectedSubcategory),
-      ),
+    () => {
+      const normalizedSlug = normalizeSlugLike(slug);
+      const normalizedSelectedCategory = normalizeSlugLike(selectedCategory);
+      const normalizedSelectedSubcategory = normalizeSlugLike(selectedSubcategory);
+      return products.filter((product) => {
+        const normalizedProductCategory = normalizeSlugLike(product.category);
+        const categoryMatches =
+          normalizedProductCategory === normalizedSlug ||
+          normalizedProductCategory === normalizedSelectedCategory;
+        const subcategoryMatches =
+          !selectedSubcategory ||
+          normalizeSlugLike(product.subcategory ?? "") === normalizedSelectedSubcategory;
+        return categoryMatches && subcategoryMatches;
+      });
+    },
     [products, selectedCategory, selectedSubcategory, slug],
   );
   const availableSubcategories = useMemo(

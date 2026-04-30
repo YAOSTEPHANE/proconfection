@@ -1,4 +1,4 @@
-import { categories } from "@/lib/catalog";
+import { categories, categoryToSlug } from "@/lib/catalog";
 
 export type DashboardCategory = {
   id: string;
@@ -23,7 +23,7 @@ export type DashboardBanner = {
 export const defaultDashboardCategories: DashboardCategory[] = categories.map((category) => ({
   id: `cat-${category.toLowerCase()}`,
   name: category,
-  slug: category.toLowerCase(),
+  slug: categoryToSlug(category),
   image: "",
   isActive: true,
   createdAt: new Date("2026-01-01T00:00:00.000Z").toISOString(),
