@@ -214,7 +214,7 @@ const seedProducts: Product[] = [
     oldPrice: 19000,
     discountPercentage: 16,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9041-scaled-1-2c1f22a5-0475-44a3-b2ed-3b3c444a5bb7.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9041-scaled-1-2c1f22a5-0475-44a3-b2ed-3b3c444a5bb7.png",
     description: "Chemise blanche de tenue scolaire, coupe classique.",
     sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
   },
@@ -225,7 +225,7 @@ const seedProducts: Product[] = [
     subcategory: "Primaire JP",
     price: 16000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9038-scaled-1-e7045e5f-0d46-4d5f-9e22-ccd7c18bc91d.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9038-scaled-1-e7045e5f-0d46-4d5f-9e22-ccd7c18bc91d.png",
     description: "Chemise blanche facile a assortir avec pantalon ou jupe.",
     sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
   },
@@ -238,7 +238,7 @@ const seedProducts: Product[] = [
     oldPrice: 22000,
     discountPercentage: 18,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9067-scaled-1-1e3eaafb-f190-4eca-8126-5a7996dec1ea.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9067-scaled-1-1e3eaafb-f190-4eca-8126-5a7996dec1ea.png",
     description: "Robe scolaire fille en tissu leger, style maternelle.",
     sizes: ["3 ans", "4 ans", "5 ans", "6 ans"],
   },
@@ -251,7 +251,7 @@ const seedProducts: Product[] = [
     oldPrice: 39000,
     discountPercentage: 18,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9040-scaled-1-a44ad085-70a6-43fc-ade6-4e1237bd4396.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9040-scaled-1-a44ad085-70a6-43fc-ade6-4e1237bd4396.png",
     description: "Ensemble scolaire complet pour garcon.",
     sizes: ["8 ans", "10 ans", "12 ans", "14 ans"],
   },
@@ -262,7 +262,7 @@ const seedProducts: Product[] = [
     subcategory: "College JM",
     price: 15000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8974-scaled-1-02a01559-05ed-4b5f-bb3e-6f99a73b99ae.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8974-scaled-1-02a01559-05ed-4b5f-bb3e-6f99a73b99ae.png",
     description: "Pantalon scolaire fille avec coupe ajustee.",
     sizes: ["10 ans", "12 ans", "14 ans", "16 ans"],
   },
@@ -275,7 +275,7 @@ const seedProducts: Product[] = [
     oldPrice: 34000,
     discountPercentage: 18,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8993-scaled-1-0a880a0d-de0e-414f-9e34-b12c3eac47be.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8993-scaled-1-0a880a0d-de0e-414f-9e34-b12c3eac47be.png",
     description: "Tenue scolaire beige garcon pour la saison chaude.",
     sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
   },
@@ -286,7 +286,7 @@ const seedProducts: Product[] = [
     subcategory: "Tenues Garcons BP",
     price: 28000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8992-scaled-1-e42cb7b5-d7d7-44bd-b8f2-dd6325887e35.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8992-scaled-1-e42cb7b5-d7d7-44bd-b8f2-dd6325887e35.png",
     description: "Uniforme garcon beige avec short/pantalon selon taille.",
     sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
   },
@@ -297,7 +297,7 @@ const seedProducts: Product[] = [
     subcategory: "Tenues Sports BP",
     price: 12000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9092-scaled-1-c3099ec4-314f-4dbd-81fc-be4d8dc5c230.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9092-scaled-1-c3099ec4-314f-4dbd-81fc-be4d8dc5c230.png",
     description: "Tenue de sport scolaire pour garcon.",
     sizes: ["8 ans", "10 ans", "12 ans", "14 ans"],
   },
@@ -310,7 +310,7 @@ const seedProducts: Product[] = [
     oldPrice: 20000,
     discountPercentage: 20,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Ban112-a96131ae-593c-4a61-8c21-854daad35e0b.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Ban112-a96131ae-593c-4a61-8c21-854daad35e0b.png",
     description: "Sac maternelle leger et confortable, design hibou.",
   },
   {
@@ -320,7 +320,7 @@ const seedProducts: Product[] = [
     subcategory: "Tenues Sports BP",
     price: 12000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9097-scaled-1-7a9a16ac-9f22-4ba1-941a-6729f921727c.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9097-scaled-1-7a9a16ac-9f22-4ba1-941a-6729f921727c.png",
     description: "Tenue de sport legere pour fille.",
     sizes: ["8 ans", "10 ans", "12 ans", "14 ans"],
   },
@@ -331,7 +331,7 @@ const seedProducts: Product[] = [
     subcategory: "Tenues Sports BP",
     price: 12000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9093-scaled-1-142f7e72-8052-48db-b306-3cdec91c4a6b.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9093-scaled-1-142f7e72-8052-48db-b306-3cdec91c4a6b.png",
     description: "T-shirt et short pour activites sportives.",
     sizes: ["8 ans", "10 ans", "12 ans", "14 ans"],
   },
@@ -342,7 +342,7 @@ const seedProducts: Product[] = [
     subcategory: "Tenues Garcons BP",
     price: 25000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9082-scaled-c3fdd410-eff6-4d52-b4ca-28b71cd653e4.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9082-scaled-c3fdd410-eff6-4d52-b4ca-28b71cd653e4.png",
     description: "Uniforme garcon beige avec short.",
     sizes: ["5 ans", "6 ans", "7 ans", "8 ans"],
   },
@@ -353,7 +353,7 @@ const seedProducts: Product[] = [
     subcategory: "Tenues Garcons BP",
     price: 25000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8949-scaled-6950d7c3-dada-45d3-8f43-4c7a54a43db4.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8949-scaled-6950d7c3-dada-45d3-8f43-4c7a54a43db4.png",
     description: "Ensemble tenue scolaire beige pour primaire.",
     sizes: ["5 ans", "6 ans", "7 ans", "8 ans"],
   },
@@ -364,7 +364,7 @@ const seedProducts: Product[] = [
     subcategory: "Tenues Garcons BP",
     price: 14000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9081-scaled-fdeceb43-1c11-46a2-9f46-332519c11764.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9081-scaled-fdeceb43-1c11-46a2-9f46-332519c11764.png",
     description: "Pantalon cargo beige robuste pour usage quotidien.",
     sizes: ["8 ans", "10 ans", "12 ans", "14 ans"],
   },
@@ -377,7 +377,7 @@ const seedProducts: Product[] = [
     oldPrice: 21000,
     discountPercentage: 19,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8950-scaled-64a907ed-29ec-40ff-8b84-9f84278e776e.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8950-scaled-64a907ed-29ec-40ff-8b84-9f84278e776e.png",
     description: "Robe fille rose a carreaux pour maternelle.",
     sizes: ["3 ans", "4 ans", "5 ans", "6 ans"],
   },
@@ -388,7 +388,7 @@ const seedProducts: Product[] = [
     subcategory: "Tenues Filles BP",
     price: 18000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8934-scaled-dad7623b-ebb6-4e5d-abc1-b1663dd67ccc.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8934-scaled-dad7623b-ebb6-4e5d-abc1-b1663dd67ccc.png",
     description: "Robe rose style classique avec finitions blanches.",
     sizes: ["4 ans", "5 ans", "6 ans", "7 ans"],
   },
@@ -399,7 +399,7 @@ const seedProducts: Product[] = [
     subcategory: "Tenues Filles BP",
     price: 18000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8931-scaled-9ce5019e-b5b8-4c3a-88a6-2ad8a1d91dac.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8931-scaled-9ce5019e-b5b8-4c3a-88a6-2ad8a1d91dac.png",
     description: "Robe rose a carreaux, coupe confortable.",
     sizes: ["4 ans", "5 ans", "6 ans", "7 ans"],
   },
@@ -410,7 +410,7 @@ const seedProducts: Product[] = [
     subcategory: "College JM",
     price: 15000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8987-scaled-5dd0a93e-93b2-4dff-aca9-799cf9866408.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8987-scaled-5dd0a93e-93b2-4dff-aca9-799cf9866408.png",
     description: "Chemise blanche fille avec coupe ajustee.",
     sizes: ["10 ans", "12 ans", "14 ans", "16 ans"],
   },
@@ -421,7 +421,7 @@ const seedProducts: Product[] = [
     subcategory: "College JM",
     price: 15000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8951-scaled-fd5c8fde-e9e9-48ed-a578-6218d1a27f4b.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8951-scaled-fd5c8fde-e9e9-48ed-a578-6218d1a27f4b.png",
     description: "Chemise blanche scolaire pour college/lycee.",
     sizes: ["10 ans", "12 ans", "14 ans", "16 ans"],
   },
@@ -432,7 +432,7 @@ const seedProducts: Product[] = [
     subcategory: "Primaire JP",
     price: 19000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9025-scaled-1-05bc1b16-e8c0-443e-b4c4-20fa9d7c10db.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9025-scaled-1-05bc1b16-e8c0-443e-b4c4-20fa9d7c10db.png",
     description: "Robe bleue a carreaux avec poches, modele primaire.",
     sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
   },
@@ -443,7 +443,7 @@ const seedProducts: Product[] = [
     subcategory: "Primaire JP",
     price: 19000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9024-scaled-1-3f6a27d2-9db4-4904-be21-b68673aa13fb.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9024-scaled-1-3f6a27d2-9db4-4904-be21-b68673aa13fb.png",
     description: "Robe scolaire bleu marine avec finitions soignes.",
     sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
   },
@@ -454,7 +454,7 @@ const seedProducts: Product[] = [
     subcategory: "Sac Primaire",
     price: 6500,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9139-scaled-1-54c98527-56ce-427e-a323-e76425884335.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9139-scaled-1-54c98527-56ce-427e-a323-e76425884335.png",
     description: "Trousse scolaire multi-poches pour stylos et accessoires.",
   },
   {
@@ -464,7 +464,7 @@ const seedProducts: Product[] = [
     subcategory: "Tenues Filles BP",
     price: 21000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9069-scaled-1-bca8a333-ee15-45ee-b90a-b8ac061ff177.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9069-scaled-1-bca8a333-ee15-45ee-b90a-b8ac061ff177.png",
     description: "Robe bleue avec details volants pour fille.",
     sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
   },
@@ -475,7 +475,7 @@ const seedProducts: Product[] = [
     subcategory: "Primaire JM",
     price: 20000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9004-scaled-ad50b309-4664-412c-ba34-7d4919c26621.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9004-scaled-ad50b309-4664-412c-ba34-7d4919c26621.png",
     description: "Robe confortable avec coupe ample et poches.",
     sizes: ["6 ans", "8 ans", "10 ans", "12 ans"],
   },
@@ -486,7 +486,7 @@ const seedProducts: Product[] = [
     subcategory: "College JM",
     price: 22000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_1175-scaled-89ecc488-29ca-4a3d-8573-c9f3b06f8870.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_1175-scaled-89ecc488-29ca-4a3d-8573-c9f3b06f8870.png",
     description: "Robe bleu marine pour tenue quotidienne.",
     sizes: ["10 ans", "12 ans", "14 ans", "16 ans"],
   },
@@ -497,7 +497,7 @@ const seedProducts: Product[] = [
     subcategory: "College JM",
     price: 15000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8944-scaled-03746593-8011-49c6-bc14-095e92dd3f76.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8944-scaled-03746593-8011-49c6-bc14-095e92dd3f76.png",
     description: "Blouse blanche manches courtes style college.",
     sizes: ["10 ans", "12 ans", "14 ans", "16 ans"],
   },
@@ -508,7 +508,7 @@ const seedProducts: Product[] = [
     subcategory: "Primaire JM",
     price: 15500,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9119-scaled-1dac07db-61b7-4e94-952a-19402accfd7c.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9119-scaled-1dac07db-61b7-4e94-952a-19402accfd7c.png",
     description: "Chemise a carreaux bleus pour garcon.",
     sizes: ["5 ans", "6 ans", "7 ans", "8 ans"],
   },
@@ -519,7 +519,7 @@ const seedProducts: Product[] = [
     subcategory: "Primaire JM",
     price: 15500,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9105-scaled-9b8c89fa-96f8-4b8c-b484-532b460818a1.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9105-scaled-9b8c89fa-96f8-4b8c-b484-532b460818a1.png",
     description: "Chemise scolaire bleue a petits carreaux.",
     sizes: ["5 ans", "6 ans", "7 ans", "8 ans"],
   },
@@ -530,7 +530,7 @@ const seedProducts: Product[] = [
     subcategory: "Maternel JM",
     price: 18000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8923-scaled-5f4ff306-897d-4201-bb60-aa134d39e752.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8923-scaled-5f4ff306-897d-4201-bb60-aa134d39e752.png",
     description: "Jupe uniforme avec bretelles croisees.",
     sizes: ["4 ans", "5 ans", "6 ans", "7 ans"],
   },
@@ -541,7 +541,7 @@ const seedProducts: Product[] = [
     subcategory: "Maternel JM",
     price: 18000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8960-scaled-83769a1f-d4f0-4905-93f1-8295f53865bb.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8960-scaled-83769a1f-d4f0-4905-93f1-8295f53865bb.png",
     description: "Version dos de la jupe bretelles, meme tissu.",
     sizes: ["4 ans", "5 ans", "6 ans", "7 ans"],
   },
@@ -552,7 +552,7 @@ const seedProducts: Product[] = [
     subcategory: "Sac Primaire",
     price: 15000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-3-70535e30-82f8-4cc4-8496-75eb52d12023.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-3-70535e30-82f8-4cc4-8496-75eb52d12023.png",
     description: "Sac primaire rose avec motif Frozen.",
   },
   {
@@ -562,7 +562,7 @@ const seedProducts: Product[] = [
     subcategory: "Sac Primaire",
     price: 16500,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-59-79a99657-7edf-4567-a029-3375f3e4e524.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-59-79a99657-7edf-4567-a029-3375f3e4e524.png",
     description: "Sac primaire avec compartiments multiples.",
   },
   {
@@ -574,7 +574,7 @@ const seedProducts: Product[] = [
     oldPrice: 24000,
     discountPercentage: 21,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-11-22899e03-78b4-4293-8977-cd7236b2dba5.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-11-22899e03-78b4-4293-8977-cd7236b2dba5.png",
     description: "Sac solide pour college avec grande capacite.",
   },
   {
@@ -586,7 +586,7 @@ const seedProducts: Product[] = [
     oldPrice: 21000,
     discountPercentage: 19,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-9-a6e2f998-f97b-4d24-8e25-39b703036292.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-9-a6e2f998-f97b-4d24-8e25-39b703036292.png",
     description: "Sac scolaire enfant avec poches laterales.",
   },
   {
@@ -596,7 +596,7 @@ const seedProducts: Product[] = [
     subcategory: "Sac Primaire",
     price: 17000,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-7-b296b07b-8eca-4c26-8e24-0bc6853cd772.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-7-b296b07b-8eca-4c26-8e24-0bc6853cd772.png",
     description: "Sac primaire avec fermeture zip et poche frontale.",
   },
   {
@@ -608,9 +608,10 @@ const seedProducts: Product[] = [
     oldPrice: 22000,
     discountPercentage: 20,
     image:
-      "/api/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-10-837f4dce-5ca9-4efc-b8ca-8a2fe4e691a4.png",
+      "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_Sans-titre-10-837f4dce-5ca9-4efc-b8ca-8a2fe4e691a4.png",
     description: "Sac scolaire fille avec grand compartiment central.",
   },
 ];
 
 export const defaultProducts: Product[] = applySchoolPricingGrid(seedProducts);
+
