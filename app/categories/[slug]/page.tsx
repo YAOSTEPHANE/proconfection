@@ -224,7 +224,7 @@ export default function CategoryDetailPage() {
                     alt={product.name}
                     width={900}
                     height={600}
-                    className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:opacity-0"
+                    className="absolute inset-0 h-full w-full object-contain bg-white transition duration-300 group-hover:opacity-0"
                     onError={(event) => {
                       event.currentTarget.src = FALLBACK_IMAGE;
                     }}
@@ -234,7 +234,7 @@ export default function CategoryDetailPage() {
                     alt={`${product.name} - vue secondaire`}
                     width={900}
                     height={600}
-                    className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
+                    className="absolute inset-0 h-full w-full object-contain bg-white opacity-0 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
                     onError={(event) => {
                       event.currentTarget.src = FALLBACK_IMAGE;
                     }}

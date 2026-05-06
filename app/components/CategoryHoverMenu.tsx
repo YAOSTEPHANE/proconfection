@@ -44,7 +44,7 @@ export default function CategoryHoverMenu({
   });
 
   return (
-    <aside className={`relative z-40 h-96 w-56 shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${className ?? ""}`}>
+    <aside className={`relative z-10 h-96 w-56 shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${className ?? ""}`}>
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Categories</p>
       <div className="pr-1">
       <ul className="space-y-1">

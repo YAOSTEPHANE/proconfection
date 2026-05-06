@@ -70,7 +70,7 @@ export default function SiteHeader() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-100 border-b border-slate-200 bg-white shadow-sm">
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white shadow-sm">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-3 py-3 sm:px-4">
         <Link
           href="/"

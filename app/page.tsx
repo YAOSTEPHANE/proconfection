@@ -463,7 +463,7 @@ export default function Home() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-900">
       <section className="mx-auto max-w-7xl px-4 pt-4">
-        <div className="mx-auto mb-4 flex max-w-7xl flex-col items-stretch gap-4 xl:flex-row">
+        <div className="mx-auto mb-4 flex max-w-7xl flex-col items-stretch gap-4 lg:flex-row">
           <CategoryHoverMenu
             className="hidden self-stretch lg:block"
             categoryList={activeCategoryCards}
@@ -520,7 +520,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="hidden shrink-0 gap-4 md:grid md:grid-cols-2 xl:flex xl:w-72 xl:grid-cols-none xl:flex-col">
+          <div className="hidden shrink-0 gap-4 lg:flex lg:w-72 lg:flex-col">
             <div className="relative h-44 w-full overflow-hidden rounded-2xl shadow-lg">
               <Image
                 src={sideBanners[0].image}
@@ -645,7 +645,7 @@ export default function Home() {
                       alt={product.name}
                       width={900}
                       height={600}
-                      className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:opacity-0"
+                      className="absolute inset-0 h-full w-full object-contain bg-white transition duration-300 group-hover:opacity-0"
                       onError={(event) => {
                         event.currentTarget.src = FALLBACK_IMAGE;
                       }}
@@ -655,7 +655,7 @@ export default function Home() {
                       alt={`${product.name} - vue secondaire`}
                       width={900}
                       height={600}
-                      className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
+                      className="absolute inset-0 h-full w-full object-contain bg-white opacity-0 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
                       onError={(event) => {
                         event.currentTarget.src = FALLBACK_IMAGE;
                       }}
@@ -774,7 +774,7 @@ export default function Home() {
                             alt={product.name}
                             width={900}
                             height={600}
-                            className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:opacity-0"
+                            className="absolute inset-0 h-full w-full object-contain bg-white transition duration-300 group-hover:opacity-0"
                             onError={(event) => {
                               event.currentTarget.src = FALLBACK_IMAGE;
                             }}
@@ -784,7 +784,7 @@ export default function Home() {
                             alt={`${product.name} - vue secondaire`}
                             width={900}
                             height={600}
-                            className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
+                            className="absolute inset-0 h-full w-full object-contain bg-white opacity-0 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
                             onError={(event) => {
                               event.currentTarget.src = FALLBACK_IMAGE;
                             }}
@@ -861,6 +861,7 @@ export default function Home() {
                     alt="Banniere Jacques Prevert"
                     fill
                     className="object-cover transition duration-300 group-hover:scale-105"
+                    sizes="(max-width: 768px) 100vw, 600px"
                   />
                   <div className="absolute inset-0 bg-black/35" />
                   <div className="absolute inset-0 flex items-end justify-between p-4 text-white">
@@ -889,6 +890,7 @@ export default function Home() {
                     alt="Banniere Blaise Pascal"
                     fill
                     className="object-cover transition duration-300 group-hover:scale-105"
+                    sizes="(max-width: 768px) 100vw, 600px"
                   />
                   <div className="absolute inset-0 bg-black/35" />
                   <div className="absolute inset-0 flex items-end justify-between p-4 text-white">
@@ -920,6 +922,7 @@ export default function Home() {
                           alt={banner.title}
                           fill
                           className="object-cover transition duration-500 group-hover:scale-105"
+                          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                         />
                         <div className="absolute inset-0 bg-black/35" />
                         <div className="absolute inset-0 flex flex-col justify-end p-3 text-white">
