@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { hasValidAdminSession } from "@/lib/auth";
 import { getDb } from "@/lib/mongodb";
+import { databaseErrorHeaders, formatMongoError } from "@/lib/mongodb-errors";
 import type { Filter } from "mongodb";
 
 type OrderLine = {
@@ -74,8 +75,18 @@ export async function GET(request: Request) {
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Connexion MongoDB impossible.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("GET /api/orders:", error);
+    return NextResponse.json(
+      {
+        items: [],
+        page: 1,
+        pageSize: 10,
+        total: 0,
+        totalPages: 1,
+        degraded: true,
+        error: formatMongoError(error),
+      },
+      { status: 200, headers: databaseErrorHeaders(error) },
+    );
   }
 }

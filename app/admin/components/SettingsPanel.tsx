@@ -283,14 +283,22 @@ export default function SettingsPanel({
               className="md:col-span-2"
             />
             {settings.display.maintenanceMode ? (
-              <Field label="Message de maintenance" className="md:col-span-2">
-                <textarea
-                  className="admin-input min-h-20"
-                  value={settings.display.maintenanceMessage}
-                  onChange={(e) => patchDisplay("maintenanceMessage", e.target.value)}
-                  disabled={loading || saving}
-                />
-              </Field>
+              <>
+                <Field label="Message de maintenance" className="md:col-span-2">
+                  <textarea
+                    className="admin-input min-h-20"
+                    value={settings.display.maintenanceMessage}
+                    onChange={(e) => patchDisplay("maintenanceMessage", e.target.value)}
+                    disabled={loading || saving}
+                  />
+                </Field>
+                <p className="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                  Cliquez sur <strong>Enregistrer les paramètres</strong> ci-dessous pour appliquer le
+                  changement. Testez ensuite l&apos;accueil en navigation privée —{" "}
+                  <code className="rounded bg-white/80 px-1">/admin</code> reste accessible aux
+                  administrateurs.
+                </p>
+              </>
             ) : null}
           </div>
         ) : null}

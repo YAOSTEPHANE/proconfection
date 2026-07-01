@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { hasValidAdminSession } from "@/lib/auth";
 import { getDb } from "@/lib/mongodb";
+import { databaseErrorHeaders, formatMongoError } from "@/lib/mongodb-errors";
 import { defaultUsers, type UserRecord } from "@/lib/users";
 
 type UserInput = {
@@ -55,9 +56,11 @@ export async function GET() {
 
     return NextResponse.json(users);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Connexion MongoDB impossible.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("GET /api/users:", error);
+    return NextResponse.json(defaultUsers, {
+      status: 200,
+      headers: databaseErrorHeaders(error),
+    });
   }
 }
 
@@ -95,8 +98,7 @@ export async function POST(request: Request) {
     await db.collection<UserRecord>("users").insertOne(user);
     return NextResponse.json(user, { status: 201 });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Connexion MongoDB impossible.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("POST /api/users:", error);
+    return NextResponse.json({ error: formatMongoError(error) }, { status: 500 });
   }
 }

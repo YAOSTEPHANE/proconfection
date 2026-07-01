@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { hasValidAdminSession } from "@/lib/auth";
 import { getDb } from "@/lib/mongodb";
+import { databaseErrorHeaders, formatMongoError } from "@/lib/mongodb-errors";
+import { NO_STORE_HEADERS } from "@/lib/maintenance";
 import { DEFAULT_SHOP_SETTINGS, normalizeShopSettings, type ShopSettings } from "@/lib/settings";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   try {
@@ -11,12 +16,19 @@ export async function GET() {
       .findOne({ id: "shop-settings" }, { projection: { _id: 0 } });
 
     if (!doc) {
-      return NextResponse.json({ settings: DEFAULT_SHOP_SETTINGS });
+      return NextResponse.json({ settings: DEFAULT_SHOP_SETTINGS }, { headers: NO_STORE_HEADERS });
     }
 
-    return NextResponse.json({ settings: normalizeShopSettings(doc) });
-  } catch {
-    return NextResponse.json({ settings: DEFAULT_SHOP_SETTINGS });
+    return NextResponse.json(
+      { settings: normalizeShopSettings(doc) },
+      { headers: NO_STORE_HEADERS },
+    );
+  } catch (error) {
+    console.error("GET /api/settings:", error);
+    return NextResponse.json(
+      { settings: DEFAULT_SHOP_SETTINGS, degraded: true },
+      { status: 200, headers: { ...NO_STORE_HEADERS, ...databaseErrorHeaders(error) } },
+    );
   }
 }
 
@@ -49,9 +61,8 @@ export async function PUT(request: Request) {
       .collection<ShopSettings>("app_settings")
       .updateOne({ id: "shop-settings" }, { $set: settings }, { upsert: true });
 
-    return NextResponse.json({ settings });
+    return NextResponse.json({ settings }, { headers: NO_STORE_HEADERS });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Sauvegarde impossible.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: formatMongoError(error) }, { status: 500 });
   }
 }

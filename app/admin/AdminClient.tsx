@@ -16,6 +16,7 @@ import {
 import type { DashboardBanner, DashboardCategory } from "@/lib/dashboard-content";
 import type { UserRecord } from "@/lib/users";
 import { DEFAULT_SHOP_SETTINGS, type ShopSettings } from "@/lib/settings";
+import { DATABASE_ERROR_HEADER } from "@/lib/mongodb-errors";
 import DashboardHeader, { PremiumModal, SectionPanel, StatCard } from "./components/DashboardHeader";
 import DashboardSidebar from "./components/DashboardSidebar";
 import SettingsPanel from "./components/SettingsPanel";
@@ -70,7 +71,21 @@ type OrdersResponse = {
   pageSize: number;
   total: number;
   totalPages: number;
+  degraded?: boolean;
+  error?: string;
 };
+
+function readDatabaseWarning(response: Response): string | null {
+  const header = response.headers.get(DATABASE_ERROR_HEADER);
+  if (!header) {
+    return null;
+  }
+  try {
+    return decodeURIComponent(header);
+  } catch {
+    return header;
+  }
+}
 
 type AdminOrderDetails = AdminOrder & {
   lines: Array<{
@@ -350,7 +365,15 @@ export default function AdminClient() {
       setSettingsLoading(true);
       try {
         const response = await fetch("/api/settings");
-        const data = (await response.json()) as { settings?: ShopSettings; error?: string };
+        const data = (await response.json()) as {
+          settings?: ShopSettings;
+          error?: string;
+          degraded?: boolean;
+        };
+        const dbWarning = readDatabaseWarning(response);
+        if (active && dbWarning) {
+          setError(`Base de données indisponible : ${dbWarning}`);
+        }
         if (active && response.ok && data.settings) {
           setShopSettings(data.settings);
         }
@@ -512,6 +535,10 @@ export default function AdminClient() {
       try {
         const response = await fetch("/api/users");
         const data = (await response.json()) as UserRecord[] | { error?: string };
+        const dbWarning = readDatabaseWarning(response);
+        if (active && dbWarning) {
+          setError(`Base de données indisponible : ${dbWarning}`);
+        }
         if (!response.ok || !Array.isArray(data)) {
           throw new Error(!Array.isArray(data) ? data.error : "Chargement utilisateurs impossible.");
         }
@@ -549,6 +576,10 @@ export default function AdminClient() {
         });
         const response = await fetch(`/api/orders?${query.toString()}`);
         const data = (await response.json()) as OrdersResponse | { error?: string };
+        const dbWarning = readDatabaseWarning(response);
+        if (active && dbWarning) {
+          setError(`Base de données indisponible : ${dbWarning}`);
+        }
         if (!response.ok || !("items" in data) || !Array.isArray(data.items)) {
           throw new Error(!("items" in data) ? data.error : "Chargement commandes impossible.");
         }
