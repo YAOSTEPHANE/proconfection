@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "@/lib/mongodb";
 import { defaultProducts, getProductPriceForSize, type Product } from "@/lib/catalog";
 import { getShippingFeeByCommune } from "@/lib/shipping";
+import { getShopSettings } from "@/lib/settings";
 import { getStripe } from "@/lib/stripe";
 
 type CheckoutBody = {
@@ -54,6 +55,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Mode de paiement invalide." }, { status: 400 });
     }
 
+    const db = await getDb();
+    const shopSettings = await getShopSettings(db);
+
+    if (paymentMethod === "card" && !shopSettings.payments.onlinePaymentEnabled) {
+      return NextResponse.json(
+        { error: "Le paiement en ligne est temporairement indisponible." },
+        { status: 400 },
+      );
+    }
+    if (paymentMethod === "cash_on_delivery" && !shopSettings.payments.cashOnDeliveryEnabled) {
+      return NextResponse.json(
+        { error: "Le paiement à la livraison est temporairement indisponible." },
+        { status: 400 },
+      );
+    }
+
     const hasInvalidLine = body.items.some(
       (item) =>
         !item.id ||
@@ -71,7 +88,6 @@ export async function POST(request: Request) {
 
     const productIds = Array.from(new Set(body.items.map((item) => item.id)));
     const useLocalCatalog = process.env.NODE_ENV === "production";
-    const db = await getDb();
     const products = useLocalCatalog
       ? defaultProducts.filter((product) => productIds.includes(product.id))
       : await db
@@ -103,12 +119,15 @@ export async function POST(request: Request) {
     });
 
     const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
-    const shippingFee = getShippingFeeByCommune(body.customerCommune.trim());
+    const shippingFee =
+      subtotal >= shopSettings.delivery.freeShippingThreshold
+        ? 0
+        : getShippingFeeByCommune(body.customerCommune.trim());
     const total = subtotal + shippingFee;
     const orderId = `CMD-${Date.now()}`;
     const publicToken = randomUUID();
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    const currency = (process.env.STRIPE_CURRENCY ?? "xof").toLowerCase();
+    const currency = (shopSettings.payments.currencyCode || "xof").toLowerCase();
 
     await db.collection("orders").insertOne({
       orderId,

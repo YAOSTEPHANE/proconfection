@@ -6,8 +6,10 @@ import SiteFooter from "@/app/components/SiteFooter";
 export default function ConditionalFooter() {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith("/admin");
+  const isLoginRoute = pathname === "/se-connecter";
+  const isMaintenanceRoute = pathname === "/maintenance";
 
-  if (isAdminRoute) {
+  if (isAdminRoute || isLoginRoute || isMaintenanceRoute) {
     return null;
   }
 

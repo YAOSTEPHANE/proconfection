@@ -8,6 +8,8 @@ export default function ConditionalHeader() {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const isAdminRoute = pathname?.startsWith("/admin");
+  const isLoginRoute = pathname === "/se-connecter";
+  const isMaintenanceRoute = pathname === "/maintenance";
 
   useEffect(() => {
     setMounted(true);
@@ -17,7 +19,7 @@ export default function ConditionalHeader() {
     return null;
   }
 
-  if (isAdminRoute) {
+  if (isAdminRoute || isLoginRoute || isMaintenanceRoute) {
     return null;
   }
 

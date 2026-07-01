@@ -2,8 +2,6 @@
 
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import { useEffect } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   DEFAULT_SCHOOL_PRICING_COEFFICIENTS,
@@ -17,6 +15,18 @@ import {
 } from "@/lib/catalog";
 import type { DashboardBanner, DashboardCategory } from "@/lib/dashboard-content";
 import type { UserRecord } from "@/lib/users";
+import { DEFAULT_SHOP_SETTINGS, type ShopSettings } from "@/lib/settings";
+import DashboardHeader, { PremiumModal, SectionPanel, StatCard } from "./components/DashboardHeader";
+import DashboardSidebar from "./components/DashboardSidebar";
+import SettingsPanel from "./components/SettingsPanel";
+import PricingSection from "./components/PricingSection";
+import ProductsSection from "./components/ProductsSection";
+import CategoriesSection from "./components/CategoriesSection";
+import BannersSection from "./components/BannersSection";
+import BannerFormModal from "./components/BannerFormModal";
+import OrdersSection from "./components/OrdersSection";
+import UsersSection from "./components/UsersSection";
+import UserFormModal from "./components/UserFormModal";
 
 const currency = new Intl.NumberFormat("fr-FR", {
   style: "currency",
@@ -104,7 +114,8 @@ type DashboardSection =
   | "categories"
   | "banners"
   | "orders"
-  | "users";
+  | "users"
+  | "settings";
 type ProductMenuTarget = "dashboard-products-form" | "dashboard-products-search" | "dashboard-products-list";
 
 const initialForm: ProductForm = {
@@ -184,11 +195,16 @@ export default function AdminClient() {
   const [activeSection, setActiveSection] = useState<DashboardSection>("overview");
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
+  const [isBannerFormOpen, setIsBannerFormOpen] = useState(false);
+  const [isUserFormOpen, setIsUserFormOpen] = useState(false);
   const [pricingCoefficients, setPricingCoefficients] = useState<SchoolPricingCoefficients>(
     DEFAULT_SCHOOL_PRICING_COEFFICIENTS,
   );
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingSaving, setPricingSaving] = useState(false);
+  const [shopSettings, setShopSettings] = useState<ShopSettings>(DEFAULT_SHOP_SETTINGS);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [settingsSaving, setSettingsSaving] = useState(false);
   const availableProductCategories = categories;
   const availableProductSubcategories = useMemo(
     () => categorySubcategoriesMap[form.category] ?? [],
@@ -323,6 +339,32 @@ export default function AdminClient() {
       }
     }
     void loadPricingConfig();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    async function loadSettings() {
+      setSettingsLoading(true);
+      try {
+        const response = await fetch("/api/settings");
+        const data = (await response.json()) as { settings?: ShopSettings; error?: string };
+        if (active && response.ok && data.settings) {
+          setShopSettings(data.settings);
+        }
+      } catch {
+        if (active) {
+          setShopSettings(DEFAULT_SHOP_SETTINGS);
+        }
+      } finally {
+        if (active) {
+          setSettingsLoading(false);
+        }
+      }
+    }
+    void loadSettings();
     return () => {
       active = false;
     };
@@ -892,6 +934,28 @@ export default function AdminClient() {
     }
   }
 
+  async function saveShopSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSettingsSaving(true);
+    try {
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: shopSettings }),
+      });
+      const data = (await response.json()) as { settings?: ShopSettings; error?: string };
+      if (!response.ok || !data.settings) {
+        throw new Error(data.error ?? "Sauvegarde impossible.");
+      }
+      setShopSettings(data.settings);
+      setError(null);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Erreur sauvegarde paramètres.");
+    } finally {
+      setSettingsSaving(false);
+    }
+  }
+
   async function submitUserForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (
@@ -930,6 +994,7 @@ export default function AdminClient() {
       );
       setUserForm(initialUserForm);
       setEditingUserId(null);
+      setIsUserFormOpen(false);
       setError(null);
     } catch (submitError) {
       setError(
@@ -943,6 +1008,7 @@ export default function AdminClient() {
   }
 
   function startEditUser(user: UserRecord) {
+    setIsUserFormOpen(true);
     setEditingUserId(user.id);
     setUserForm({
       firstName: user.firstName,
@@ -955,6 +1021,13 @@ export default function AdminClient() {
   }
 
   function cancelEditUser() {
+    setEditingUserId(null);
+    setUserForm(initialUserForm);
+    setIsUserFormOpen(false);
+  }
+
+  function startCreateUser() {
+    setIsUserFormOpen(true);
     setEditingUserId(null);
     setUserForm(initialUserForm);
   }
@@ -1069,6 +1142,7 @@ export default function AdminClient() {
       );
       setBannerForm(initialBannerForm);
       setEditingBannerId(null);
+      setIsBannerFormOpen(false);
       setError(null);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Erreur banniere.");
@@ -1076,6 +1150,7 @@ export default function AdminClient() {
   }
 
   function startEditBanner(banner: DashboardBanner) {
+    setIsBannerFormOpen(true);
     setEditingBannerId(banner.id);
     setBannerForm({
       title: banner.title,
@@ -1088,6 +1163,13 @@ export default function AdminClient() {
   }
 
   function cancelEditBanner() {
+    setEditingBannerId(null);
+    setBannerForm(initialBannerForm);
+    setIsBannerFormOpen(false);
+  }
+
+  function startCreateBanner() {
+    setIsBannerFormOpen(true);
     setEditingBannerId(null);
     setBannerForm(initialBannerForm);
   }
@@ -1110,387 +1192,235 @@ export default function AdminClient() {
   }
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 md:px-6">
-      <header className="overflow-hidden rounded-3xl border border-indigo-100 bg-linear-to-br from-slate-950 via-indigo-950 to-violet-900 p-6 text-white shadow-2xl shadow-indigo-950/20">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Image
-              src="/logo-proconfection.png"
-              alt="ProConfection Internationale"
-              width={180}
-              height={100}
-              className="h-9 w-auto"
-              priority
-            />
-            <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-200">
-              Tableau de bord
-            </p>
-            <h1 className="mt-1 text-2xl font-bold md:text-3xl">Administration ProConfection</h1>
-            <p className="mt-1 text-sm text-indigo-100/90">
-              Produits actifs: <strong>{totalProducts}</strong>
-            </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              prefetch={false}
-              className="rounded-full border border-white/25 bg-white/10 px-4 py-1.5 text-sm backdrop-blur"
-            >
-              Retour boutique
-            </Link>
-            <button
-              onClick={logout}
-              className="rounded-full bg-rose-500 px-4 py-1.5 text-sm font-semibold text-white"
-            >
-              Se deconnecter
-            </button>
-          </div>
-        </div>
-        {error ? (
-          <p className="mt-3 rounded-xl border border-rose-300/40 bg-rose-500/15 px-3 py-2 text-sm text-rose-100">
-            {error}
-          </p>
-        ) : null}
-      </header>
+    <main className="mx-auto max-w-[1440px] space-y-6 px-4 py-6 md:px-8 md:py-8">
+      <DashboardHeader totalProducts={totalProducts} error={error} onLogout={logout} />
 
-      <div className="grid items-start gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <aside className="sticky top-24 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-          <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Menu dashboard
-          </p>
-          <nav className="space-y-1">
-            {[
-              { id: "overview", label: "Vue d'ensemble" },
-              { id: "pricing", label: "Tarification" },
-              { id: "products", label: "Produits" },
-              { id: "categories", label: "Categories" },
-              { id: "banners", label: "Bannieres" },
-              { id: "orders", label: "Commandes" },
-              { id: "users", label: "Utilisateurs" },
-            ].map((entry) => (
-              <button
-                key={`menu-${entry.id}`}
-                type="button"
-                onClick={() => goToSection(entry.id as DashboardSection)}
-                className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${
-                  activeSection === entry.id
-                    ? "bg-indigo-600 text-white shadow-sm"
-                    : "text-slate-700 hover:bg-slate-100"
-                }`}
-              >
-                {entry.label}
-              </button>
-            ))}
-            {activeSection === "products" ? (
-              <div className="mt-1 space-y-1 rounded-xl border border-indigo-100 bg-indigo-50/60 p-2">
-                <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-indigo-600">
-                  Produits
-                </p>
-                <button
-                  type="button"
-                  onClick={() => goToProductTarget("dashboard-products-form")}
-                  className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-indigo-700 hover:bg-indigo-100"
-                >
-                  Ajouter / Modifier
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goToProductTarget("dashboard-products-search")}
-                  className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-indigo-700 hover:bg-indigo-100"
-                >
-                  Rechercher
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goToProductTarget("dashboard-products-list")}
-                  className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-indigo-700 hover:bg-indigo-100"
-                >
-                  Liste des produits
-                </button>
-              </div>
-            ) : null}
-          </nav>
-        </aside>
+      <div className="grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <DashboardSidebar
+          activeSection={activeSection}
+          onNavigate={goToSection}
+          onProductNavigate={goToProductTarget}
+        />
 
-        <div className="space-y-6">
+        <div className="space-y-6 admin-animate-in">
       <section
         id="dashboard-overview"
-        className={`${activeSection === "overview" ? "grid" : "hidden"} gap-3 md:grid-cols-2 xl:grid-cols-5`}
+        className={`${activeSection === "overview" ? "grid" : "hidden"} gap-4 md:grid-cols-2 xl:grid-cols-5`}
       >
-        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Produits actifs</p>
-          <p className="mt-2 text-2xl font-bold text-slate-900">{totalProducts}</p>
-        </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Chiffre d&apos;affaires paye</p>
-          <p className="mt-2 text-2xl font-bold text-slate-900">{currency.format(dashboardMetrics.paidRevenue)}</p>
-        </article>
-        <article className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-emerald-700">Commandes payees</p>
-          <p className="mt-2 text-2xl font-bold text-emerald-800">{dashboardMetrics.paidOrders}</p>
-        </article>
-        <article className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-amber-700">Commandes en attente</p>
-          <p className="mt-2 text-2xl font-bold text-amber-800">{dashboardMetrics.pendingOrders}</p>
-        </article>
-        <article className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-indigo-700">Utilisateurs actifs</p>
-          <p className="mt-2 text-2xl font-bold text-indigo-800">{dashboardMetrics.activeUsers}</p>
-        </article>
+        <StatCard
+          label="Produits actifs"
+          value={totalProducts}
+          accent="gold"
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5a1.125 1.125 0 00-1.125-1.125H3.375a1.125 1.125 0 00-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+            </svg>
+          }
+        />
+        <StatCard
+          label="Chiffre d'affaires payé"
+          value={currency.format(dashboardMetrics.paidRevenue)}
+          accent="gold"
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          }
+        />
+        <StatCard
+          label="Commandes payées"
+          value={dashboardMetrics.paidOrders}
+          accent="emerald"
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          }
+        />
+        <StatCard
+          label="En attente"
+          value={dashboardMetrics.pendingOrders}
+          accent="amber"
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          }
+        />
+        <StatCard
+          label="Utilisateurs actifs"
+          value={dashboardMetrics.activeUsers}
+          accent="rose"
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+            </svg>
+          }
+        />
       </section>
 
       <section
-        className={`${activeSection === "overview" ? "grid" : "hidden"} gap-4 lg:grid-cols-2`}
+        className={`${activeSection === "overview" ? "grid" : "hidden"} gap-5 lg:grid-cols-2`}
       >
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-            Raccourcis
-          </h2>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => goToSection("products")}
-              className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-left text-sm text-indigo-700"
-            >
-              + Ajouter un produit
-            </button>
-            <button
-              type="button"
-              onClick={() => goToSection("categories")}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm text-slate-700"
-            >
-              Gerer les categories
-            </button>
-            <button
-              type="button"
-              onClick={() => goToSection("banners")}
-              className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-left text-sm text-violet-700"
-            >
-              Mettre a jour les bannieres
-            </button>
-            <button
-              type="button"
-              onClick={() => goToSection("orders")}
-              className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-left text-sm text-emerald-700"
-            >
-              Suivre les commandes
-            </button>
-            <button
-              type="button"
-              onClick={() => goToSection("users")}
-              className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-sm text-amber-700 sm:col-span-2"
-            >
-              Gerer les utilisateurs
-            </button>
+        <SectionPanel title="Raccourcis" subtitle="Accès rapide aux sections clés">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                ["products", "+ Ajouter un produit", "from-[#f5efe4] to-white text-[#9a7b4f] ring-[rgba(184,149,108,0.25)]"],
+                ["categories", "Gérer les catégories", "from-stone-50 to-white text-stone-700 ring-stone-200/80"],
+                ["banners", "Mettre à jour les bannières", "from-rose-50 to-white text-rose-700 ring-rose-200/60"],
+                ["orders", "Suivre les commandes", "from-emerald-50 to-white text-emerald-700 ring-emerald-200/60"],
+                ["users", "Gérer les utilisateurs", "from-amber-50 to-white text-amber-800 ring-amber-200/60"],
+                ["settings", "Configurer les paramètres", "from-violet-50 to-white text-violet-800 ring-violet-200/60 sm:col-span-2"],
+              ] as const
+            ).map(([section, label, style]) => (
+              <button
+                key={section}
+                type="button"
+                onClick={() => goToSection(section)}
+                className={`rounded-xl bg-gradient-to-br px-4 py-3 text-left text-sm font-medium ring-1 transition hover:-translate-y-0.5 hover:shadow-md ${style}`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-        </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-            Repartition des commandes
-          </h2>
-          <div className="mt-4 space-y-3">
+        </SectionPanel>
+
+        <SectionPanel title="Répartition des commandes" subtitle="Par statut de traitement">
+          <div className="space-y-4">
             {ordersByStatus.map((item) => {
               const max = Math.max(1, orders.length);
               const pct = Math.min(100, Math.round((item.value / max) * 100));
-              const widthClass =
-                pct >= 90
-                  ? "w-full"
-                  : pct >= 75
-                    ? "w-9/12"
-                    : pct >= 50
-                      ? "w-6/12"
-                      : pct >= 33
-                        ? "w-4/12"
-                        : pct >= 20
-                          ? "w-3/12"
-                          : pct > 0
-                            ? "w-2/12"
-                            : "w-0";
               return (
-                <div key={`status-bar-${item.label}`} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs text-slate-600">
-                    <span>{item.label}</span>
-                    <span>{item.value}</span>
+                <div key={`status-bar-${item.label}`} className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-stone-600">{item.label}</span>
+                    <span className="font-semibold text-stone-900">{item.value}</span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                    <div className={`h-full rounded-full ${item.color} ${widthClass}`} />
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-stone-100">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${item.color}`}
+                      style={{ width: `${pct}%` }}
+                    />
                   </div>
                 </div>
               );
             })}
           </div>
-        </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-            Villes principales (utilisateurs)
-          </h2>
-          <div className="mt-4 space-y-2">
-            {topCities.map(([city, count]) => (
-                <div
-                  key={`city-${city}`}
-                  className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm"
-                >
-                  <span>{city}</span>
-                  <strong>{count}</strong>
-                </div>
-              ))}
-            {users.length === 0 ? <p className="text-sm text-slate-500">Aucune donnee utilisateur.</p> : null}
+        </SectionPanel>
+
+        <SectionPanel title="Villes principales" subtitle="Répartition géographique des utilisateurs">
+          <div className="space-y-2">
+            {topCities.map(([city, count], index) => (
+              <div
+                key={`city-${city}`}
+                className="flex items-center justify-between rounded-xl border border-stone-100 bg-gradient-to-r from-[#fffcf8] to-white px-4 py-2.5 text-sm transition hover:border-[rgba(184,149,108,0.2)]"
+              >
+                <span className="flex items-center gap-3">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#f5efe4] text-[11px] font-bold text-[#9a7b4f]">
+                    {index + 1}
+                  </span>
+                  {city}
+                </span>
+                <strong className="text-[#9a7b4f]">{count}</strong>
+              </div>
+            ))}
+            {users.length === 0 ? (
+              <p className="py-4 text-center text-sm text-stone-400">Aucune donnée utilisateur.</p>
+            ) : null}
           </div>
-        </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-            Chiffre d&apos;affaires (7 derniers jours)
-          </h2>
-          <div className="mt-4 flex h-32 items-end gap-2">
+        </SectionPanel>
+
+        <SectionPanel
+          title="Chiffre d'affaires"
+          subtitle="7 derniers jours — commandes payées"
+          className="lg:col-span-2"
+        >
+          <div className="flex h-36 items-end gap-3">
             {revenueByDay.map((day) => (
-              <div key={`revenue-${day.key}`} className="flex flex-1 flex-col items-center gap-1">
-                <div className="flex w-full items-end justify-center rounded-md bg-slate-100">
-                  <div className={`w-full max-w-7 rounded-md bg-indigo-500 ${day.heightClass}`} />
+              <div key={`revenue-${day.key}`} className="group flex flex-1 flex-col items-center gap-2">
+                <div className="flex w-full flex-1 items-end justify-center rounded-t-lg bg-gradient-to-t from-[#f5efe4] to-stone-50 px-1 pt-2">
+                  <div
+                    className={`w-full max-w-10 rounded-t-md bg-gradient-to-t from-[#9a7b4f] to-[#c9a962] shadow-sm transition group-hover:from-[#b8956c] group-hover:to-[#d4b87a] ${day.heightClass}`}
+                  />
                 </div>
-                <span className="text-[11px] text-slate-500">{day.label}</span>
+                <span className="text-[11px] font-medium capitalize text-stone-500">{day.label}</span>
               </div>
             ))}
           </div>
-          <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
-            <p>Total 7 jours: <strong>{currency.format(revenueByDay.reduce((sum, day) => sum + day.value, 0))}</strong></p>
-            <p>Panier moyen: <strong>{orders.length > 0 ? currency.format(orders.reduce((sum, order) => sum + order.total, 0) / orders.length) : currency.format(0)}</strong></p>
+          <div className="mt-5 flex flex-wrap gap-6 border-t border-stone-100 pt-4 text-sm text-stone-600">
+            <p>
+              Total 7 jours{" "}
+              <strong className="text-stone-900">
+                {currency.format(revenueByDay.reduce((sum, day) => sum + day.value, 0))}
+              </strong>
+            </p>
+            <p>
+              Panier moyen{" "}
+              <strong className="text-stone-900">
+                {orders.length > 0
+                  ? currency.format(orders.reduce((sum, order) => sum + order.total, 0) / orders.length)
+                  : currency.format(0)}
+              </strong>
+            </p>
           </div>
-        </article>
+        </SectionPanel>
       </section>
 
       <section
         id="dashboard-pricing"
-        className={`${activeSection === "pricing" ? "block" : "hidden"} rounded-2xl border border-slate-200 bg-white p-5 shadow-sm`}
+        className={activeSection === "pricing" ? "block" : "hidden"}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Tarification par ecole</h2>
-          <span className="text-xs text-slate-500">Coefficients appliques a la grille automatique</span>
-        </div>
-        <form onSubmit={savePricingConfig} className="grid gap-3 md:grid-cols-3">
-          <label className="space-y-1 text-sm text-slate-700">
-            <span>Jacques Prevert</span>
-            <input
-              type="number"
-              min={0.7}
-              max={1.5}
-              step={0.01}
-              value={pricingCoefficients.jacquesPrevert}
-              onChange={(event) =>
-                setPricingCoefficients((previous) => ({
-                  ...previous,
-                  jacquesPrevert: Number(event.target.value),
-                }))
-              }
-              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="space-y-1 text-sm text-slate-700">
-            <span>Blaise Pascal</span>
-            <input
-              type="number"
-              min={0.7}
-              max={1.5}
-              step={0.01}
-              value={pricingCoefficients.blaisePascal}
-              onChange={(event) =>
-                setPricingCoefficients((previous) => ({
-                  ...previous,
-                  blaisePascal: Number(event.target.value),
-                }))
-              }
-              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="space-y-1 text-sm text-slate-700">
-            <span>Jean Mermoz</span>
-            <input
-              type="number"
-              min={0.7}
-              max={1.5}
-              step={0.01}
-              value={pricingCoefficients.jeanMermoz}
-              onChange={(event) =>
-                setPricingCoefficients((previous) => ({
-                  ...previous,
-                  jeanMermoz: Number(event.target.value),
-                }))
-              }
-              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
-          <div className="md:col-span-3 flex items-center gap-2">
-            <button
-              type="submit"
-              disabled={pricingLoading || pricingSaving}
-              className="rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              {pricingSaving ? "Sauvegarde..." : "Enregistrer les coefficients"}
-            </button>
-            <button
-              type="button"
-              disabled={pricingSaving}
-              onClick={() => setPricingCoefficients(DEFAULT_SCHOOL_PRICING_COEFFICIENTS)}
-              className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 disabled:opacity-60"
-            >
-              Reinitialiser
-            </button>
-          </div>
-        </form>
+        <PricingSection
+          coefficients={pricingCoefficients}
+          loading={pricingLoading}
+          saving={pricingSaving}
+          onChange={setPricingCoefficients}
+          onSave={savePricingConfig}
+          onReset={() => setPricingCoefficients(DEFAULT_SCHOOL_PRICING_COEFFICIENTS)}
+        />
       </section>
 
       <section
         id="dashboard-products"
-        className={`${activeSection === "products" ? "block" : "hidden"}`}
+        className={activeSection === "products" ? "block" : "hidden"}
       >
-        <div className="mb-3 flex justify-end">
-          <span id="dashboard-products-form" className="sr-only">
-            Formulaire nouveau produit
-          </span>
-          <button
-            type="button"
-            onClick={startCreateProduct}
-            className="rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700"
-          >
-            Nouveau produit
-          </button>
-        </div>
+        <ProductsSection
+          items={items}
+          filteredItems={filteredItems}
+          loading={loading}
+          query={productQuery}
+          currency={currency}
+          onQueryChange={setProductQuery}
+          onCreate={startCreateProduct}
+          onEdit={startEditProduct}
+          onDuplicate={duplicateProduct}
+          onRemove={removeProduct}
+        />
       </section>
       {isProductFormOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-3 backdrop-blur-sm">
-          <div className="w-full max-h-[88vh] max-w-4xl overflow-y-auto rounded-3xl border border-white/40 bg-white shadow-2xl">
-            <div className="flex items-center justify-between bg-linear-to-r from-slate-950 via-indigo-950 to-violet-900 px-5 py-3 text-white">
-              <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-indigo-200">Catalogue</p>
-                <h2 className="text-lg font-semibold">
-                  {editingId ? "Modifier le produit" : "Nouveau produit"}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsProductFormOpen(false)}
-                className="rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold text-white"
-              >
-                Fermer
-              </button>
-            </div>
-            <form onSubmit={submitForm} className="grid gap-4 p-4 md:grid-cols-[1.4fr_1fr]">
+        <PremiumModal
+          title={editingId ? "Modifier le produit" : "Nouveau produit"}
+          subtitle="Catalogue"
+          onClose={() => setIsProductFormOpen(false)}
+          size="xl"
+        >
+            <form onSubmit={submitForm} className="grid gap-4 p-5 md:grid-cols-[1.4fr_1fr] md:p-6">
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <label className="admin-label">
                     Nom du produit
                   </label>
                   <input
                     value={form.name}
                     onChange={(event) => setForm((p) => ({ ...p, name: event.target.value }))}
                     placeholder="Ex: Ensemble premium Dakar"
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                    className="admin-input"
                   />
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <label className="admin-label">
                       Ancien prix (XOF)
                     </label>
                     <input
@@ -1499,11 +1429,11 @@ export default function AdminClient() {
                       placeholder="30000"
                       type="number"
                       min={0}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                      className="admin-input"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <label className="admin-label">
                       Nouveau prix (XOF)
                     </label>
                     <input
@@ -1512,12 +1442,12 @@ export default function AdminClient() {
                       placeholder="25000"
                       type="number"
                       min={1}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                      className="admin-input"
                     />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <label className="admin-label">
                     Stock disponible
                   </label>
                   <input
@@ -1526,12 +1456,12 @@ export default function AdminClient() {
                     placeholder="Ex: 25"
                     type="number"
                     min={0}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                    className="admin-input"
                   />
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <label className="admin-label">
                       Reduction (%)
                     </label>
                     <input
@@ -1541,11 +1471,11 @@ export default function AdminClient() {
                       type="number"
                       min={0}
                       max={99}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                      className="admin-input"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <label className="admin-label">
                       Categorie
                     </label>
                     <select
@@ -1562,7 +1492,7 @@ export default function AdminClient() {
                         })
                       }
                       aria-label="Categorie du produit"
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                      className="admin-input"
                     >
                       {availableProductCategories.map((category) => (
                         <option key={category} value={category}>
@@ -1589,8 +1519,8 @@ export default function AdminClient() {
                       }
                       className={`rounded-full px-3 py-1 text-xs font-medium transition ${
                         form.category === category
-                          ? "bg-indigo-600 text-white"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          ? "bg-[#b8956c] text-white shadow-sm"
+                          : "bg-[#f5efe4] text-[#9a7b4f] hover:bg-[#ede4d4]"
                       }`}
                     >
                       {category}
@@ -1598,7 +1528,7 @@ export default function AdminClient() {
                   ))}
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <label className="admin-label">
                     Sous-categorie
                   </label>
                   <select
@@ -1607,7 +1537,7 @@ export default function AdminClient() {
                       setForm((p) => ({ ...p, subcategory: event.target.value }))
                     }
                     aria-label="Sous-categorie du produit"
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                    className="admin-input"
                   >
                     <option value="">Aucune sous-categorie</option>
                     {availableProductSubcategories.map((subcategory) => (
@@ -1618,31 +1548,31 @@ export default function AdminClient() {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <label className="admin-label">
                     URL image principale
                   </label>
                   <input
                     value={form.image}
                     onChange={(event) => setForm((p) => ({ ...p, image: event.target.value }))}
                     placeholder="https://..."
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                    className="admin-input"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <label className="admin-label">
                     URL 2e photo
                   </label>
                   <input
                     value={form.images[0] ?? ""}
                     onChange={(event) => updateSecondaryImage(event.target.value)}
                     placeholder="https://... (photo detail supplementaire)"
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                    className="admin-input"
                   />
                 </div>
-                <div className="space-y-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
+                <div className="space-y-2 rounded-xl border border-stone-200 bg-white p-3">
                   <label
                     htmlFor="product-images-upload"
-                    className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    className="admin-label"
                   >
                     Images depuis le PC (plusieurs)
                   </label>
@@ -1652,7 +1582,7 @@ export default function AdminClient() {
                     accept="image/*"
                     multiple
                     onChange={handleProductImagesUpload}
-                    className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-indigo-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                    className="block w-full text-xs text-stone-600 file:mr-3 file:rounded-full file:border-0 file:bg-[#b8956c] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
                   />
                   <p className="text-xs text-slate-500">
                     Tu peux selectionner plusieurs images. La premiere devient l&apos;image principale.
@@ -1678,7 +1608,7 @@ export default function AdminClient() {
                   </div>
                 ) : null}
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <label className="admin-label">
                     Description
                   </label>
                   <textarea
@@ -1687,12 +1617,12 @@ export default function AdminClient() {
                       setForm((p) => ({ ...p, description: event.target.value }))
                     }
                     placeholder="Description premium du produit..."
-                    className="min-h-20 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                    className="min-h-20 w-full admin-input"
                   />
                 </div>
               </div>
-              <aside className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <aside className="space-y-3 rounded-2xl border border-stone-200 bg-white p-4">
+                <p className="admin-label">
                   Apercu instantane
                 </p>
                 <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -1724,7 +1654,7 @@ export default function AdminClient() {
                     <h3 className="text-sm font-semibold text-slate-900">
                       {form.name || "Nom du produit"}
                     </h3>
-                    <p className="text-sm font-bold text-indigo-700">
+                    <p className="text-sm font-bold text-[#9a7b4f]">
                       {Number.isFinite(Number(form.newPrice)) && Number(form.newPrice) > 0
                         ? currency.format(Number(form.newPrice))
                         : currency.format(0)}
@@ -1746,179 +1676,58 @@ export default function AdminClient() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <button
-                    type="submit"
-                    className="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white"
-                  >
+                  <button type="submit" className="admin-btn-primary w-full">
                     {editingId ? "Enregistrer les changements" : "Ajouter au catalogue"}
                   </button>
-                  <button
-                    type="button"
-                    className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-700"
-                    onClick={cancelEditProduct}
-                  >
+                  <button type="button" className="admin-btn-secondary w-full" onClick={cancelEditProduct}>
                     {editingId ? "Annuler la modification" : "Fermer"}
                   </button>
                 </div>
               </aside>
             </form>
-          </div>
-        </div>
+        </PremiumModal>
       ) : null}
 
-      <section
-        className={`${activeSection === "products" ? "grid" : "hidden"} gap-4 sm:grid-cols-2 xl:grid-cols-3`}
-      >
-        <div id="dashboard-products-search" className="sm:col-span-2 xl:col-span-3">
-          <input
-            type="text"
-            value={productQuery}
-            onChange={(event) => setProductQuery(event.target.value)}
-            placeholder="Rechercher un produit (nom, categorie, ID)"
-            className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
-        {loading ? <p className="text-sm text-slate-500">Chargement...</p> : null}
-        {filteredItems.map((item, index) => (
-          <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-            {index === 0 ? <span id="dashboard-products-list" className="sr-only">Liste des produits</span> : null}
-            {(item.images?.[0] ?? item.image)?.trim() ? (
-              <img
-                src={item.images?.[0] ?? item.image}
-                alt={item.name}
-                className="mb-3 h-36 w-full rounded-xl object-cover"
-              />
-            ) : (
-              <div className="mb-3 flex h-36 w-full items-center justify-center rounded-xl bg-slate-100 text-xs text-slate-500">
-                Aucune image
-              </div>
-            )}
-            <p className="text-xs uppercase text-slate-500">{item.category}</p>
-            <h3 className="text-base font-semibold">{item.name}</h3>
-            <p className="text-sm text-slate-600">{item.description}</p>
-            <p className="mt-2 font-semibold">{currency.format(item.price)}</p>
-            <button
-              onClick={() => startEditProduct(item)}
-              className="mt-3 mr-2 rounded bg-indigo-100 px-3 py-1 text-sm text-indigo-700"
-            >
-              Modifier
-            </button>
-            <button
-              onClick={() => removeProduct(item.id)}
-              className="mt-3 rounded bg-rose-100 px-3 py-1 text-sm text-rose-700"
-            >
-              Supprimer
-            </button>
-          </article>
-        ))}
-      </section>
-
-      <section
-        id="dashboard-categories"
-        className={`${activeSection === "categories" ? "block" : "hidden"} rounded-2xl border border-slate-200 bg-white p-5 shadow-sm`}
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Categories</h2>
-          <span className="text-sm text-slate-500">{dashboardCategories.length} categorie(s)</span>
-        </div>
-        <div className="mb-4 flex justify-end">
-          <button
-            type="button"
-            onClick={startCreateCategory}
-            className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700"
-          >
-            Nouvelle categorie
-          </button>
-        </div>
-        {categoriesLoading ? <p className="text-sm text-slate-500">Chargement des categories...</p> : null}
-        <div className="space-y-2">
-          {dashboardCategories.map((category) => (
-            <article
-              key={category.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            >
-              <div className="flex items-center gap-3">
-                {category.image?.trim() ? (
-                  <img
-                    src={category.image}
-                    alt={category.name}
-                    className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
-                  />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-[10px] text-slate-500">
-                    N/A
-                  </div>
-                )}
-                <div>
-                  <strong>{category.name}</strong>
-                  <p className="text-xs text-slate-500">{category.slug}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">
-                  {category.isActive ? "active" : "inactive"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => startEditCategory(category)}
-                  className="rounded bg-indigo-100 px-3 py-1 text-xs text-indigo-700"
-                >
-                  Modifier
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeCategory(category.id)}
-                  className="rounded bg-rose-100 px-3 py-1 text-xs text-rose-700"
-                >
-                  Supprimer
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
+      <section id="dashboard-categories" className={activeSection === "categories" ? "block" : "hidden"}>
+        <CategoriesSection
+          categories={dashboardCategories}
+          loading={categoriesLoading}
+          onCreate={startCreateCategory}
+          onEdit={startEditCategory}
+          onRemove={removeCategory}
+        />
       </section>
 
       {isCategoryFormOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-3 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-3xl border border-white/40 bg-white shadow-2xl">
-            <div className="flex items-center justify-between bg-linear-to-r from-slate-950 via-indigo-950 to-violet-900 px-5 py-3 text-white">
-              <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-indigo-200">Catalogue</p>
-                <h2 className="text-lg font-semibold">
-                  {editingCategoryId ? "Modifier la categorie" : "Nouvelle categorie"}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={cancelEditCategory}
-                className="rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold text-white"
-              >
-                Fermer
-              </button>
-            </div>
-            <form onSubmit={submitCategoryForm} className="grid gap-2 p-4 md:grid-cols-2">
+        <PremiumModal
+          title={editingCategoryId ? "Modifier la catégorie" : "Nouvelle catégorie"}
+          subtitle="Catalogue"
+          onClose={cancelEditCategory}
+          size="md"
+        >
+            <form onSubmit={submitCategoryForm} className="grid gap-3 p-5 md:grid-cols-2 md:p-6">
               <input
                 value={categoryForm.name}
                 onChange={(event) => setCategoryForm((p) => ({ ...p, name: event.target.value }))}
                 placeholder="Nom categorie"
-                className="rounded border border-slate-200 px-3 py-2 text-sm"
+                className="admin-input"
               />
               <input
                 value={categoryForm.slug}
                 onChange={(event) => setCategoryForm((p) => ({ ...p, slug: event.target.value }))}
                 placeholder="Slug (ex: mode-femme)"
-                className="rounded border border-slate-200 px-3 py-2 text-sm"
+                className="admin-input"
               />
               <input
                 value={categoryForm.image}
                 onChange={(event) => setCategoryForm((p) => ({ ...p, image: event.target.value }))}
                 placeholder="URL image (optionnel)"
-                className="rounded border border-slate-200 px-3 py-2 text-sm md:col-span-2"
+                className="admin-input md:col-span-2"
               />
-              <div className="space-y-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 md:col-span-2">
+              <div className="space-y-2 rounded-xl border border-stone-200 bg-white p-3 md:col-span-2">
                 <label
                   htmlFor="category-image-upload"
-                  className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  className="admin-label"
                 >
                   Image categorie depuis le PC
                 </label>
@@ -1947,418 +1756,109 @@ export default function AdminClient() {
                 />
                 Categorie active
               </label>
-              <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-sm text-white md:col-span-2">
+              <button type="submit" className="admin-btn-primary md:col-span-2">
                 {editingCategoryId ? "Enregistrer la categorie" : "Ajouter la categorie"}
               </button>
               {editingCategoryId ? (
                 <button
                   type="button"
                   onClick={cancelEditCategory}
-                  className="rounded border border-slate-300 px-4 py-2 text-sm md:col-span-2"
+                  className="admin-btn-secondary md:col-span-2"
                 >
                   Annuler la modification
                 </button>
               ) : null}
             </form>
-          </div>
-        </div>
+        </PremiumModal>
       ) : null}
 
-      <section
-        id="dashboard-banners"
-        className={`${activeSection === "banners" ? "block" : "hidden"} rounded-2xl border border-slate-200 bg-white p-5 shadow-sm`}
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Bannieres</h2>
-          <span className="text-sm text-slate-500">{dashboardBanners.length} banniere(s)</span>
-        </div>
-        <form onSubmit={submitBannerForm} className="mb-4 grid gap-2 md:grid-cols-2">
-          <input
-            value={bannerForm.title}
-            onChange={(event) => setBannerForm((p) => ({ ...p, title: event.target.value }))}
-            placeholder="Titre banniere"
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          />
-          <input
-            value={bannerForm.subtitle}
-            onChange={(event) => setBannerForm((p) => ({ ...p, subtitle: event.target.value }))}
-            placeholder="Sous-titre"
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          />
-          <input
-            value={bannerForm.image}
-            onChange={(event) => setBannerForm((p) => ({ ...p, image: event.target.value }))}
-            placeholder="URL image"
-            className="rounded border border-slate-200 px-3 py-2 text-sm md:col-span-2"
-          />
-          <input
-            value={bannerForm.link}
-            onChange={(event) => setBannerForm((p) => ({ ...p, link: event.target.value }))}
-            placeholder="Lien cible (ex: /ventes-flash)"
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          />
-          <select
-            value={bannerForm.position}
-            onChange={(event) =>
-              setBannerForm((p) => ({
-                ...p,
-                position: event.target.value as "hero" | "middle" | "sidebar",
-              }))
-            }
-            aria-label="Position banniere"
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          >
-            <option value="hero">hero</option>
-            <option value="middle">middle</option>
-            <option value="sidebar">sidebar</option>
-          </select>
-          <label className="inline-flex items-center gap-2 text-sm text-slate-700 md:col-span-2">
-            <input
-              type="checkbox"
-              checked={bannerForm.isActive}
-              onChange={(event) => setBannerForm((p) => ({ ...p, isActive: event.target.checked }))}
-            />
-            Banniere active
-          </label>
-          <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-sm text-white md:col-span-2">
-            {editingBannerId ? "Enregistrer la banniere" : "Ajouter la banniere"}
-          </button>
-          {editingBannerId ? (
-            <button
-              type="button"
-              onClick={cancelEditBanner}
-              className="rounded border border-slate-300 px-4 py-2 text-sm md:col-span-2"
-            >
-              Annuler la modification
-            </button>
-          ) : null}
-        </form>
-        {bannersLoading ? <p className="text-sm text-slate-500">Chargement des bannieres...</p> : null}
-        <div className="space-y-2">
-          {dashboardBanners.map((banner) => (
-            <article
-              key={banner.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            >
-              <div>
-                <strong>{banner.title}</strong>
-                <p className="text-xs text-slate-500">
-                  {banner.position} - {banner.link}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">
-                  {banner.isActive ? "active" : "inactive"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => startEditBanner(banner)}
-                  className="rounded bg-indigo-100 px-3 py-1 text-xs text-indigo-700"
-                >
-                  Modifier
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeBanner(banner.id)}
-                  className="rounded bg-rose-100 px-3 py-1 text-xs text-rose-700"
-                >
-                  Supprimer
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
+      <section id="dashboard-banners" className={activeSection === "banners" ? "block" : "hidden"}>
+        <BannersSection
+          banners={dashboardBanners}
+          loading={bannersLoading}
+          onCreate={startCreateBanner}
+          onEdit={startEditBanner}
+          onRemove={removeBanner}
+        />
       </section>
 
-      <section
-        id="dashboard-orders"
-        className={`${activeSection === "orders" ? "block" : "hidden"} rounded-2xl border border-slate-200 bg-white p-5 shadow-sm`}
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Dernieres commandes</h2>
-          <span className="text-sm text-slate-500">
-            {ordersTotal} commande(s) - page {ordersPage}/{ordersTotalPages}
-          </span>
-        </div>
-        <div className="mb-3 grid gap-2 md:grid-cols-3">
-          <input
-            type="text"
-            value={orderQuery}
-            onChange={(event) => {
-              setOrderQuery(event.target.value);
-              setOrdersPage(1);
-            }}
-            placeholder="Rechercher une commande (ID, client, email)"
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          />
-          <select
-            value={orderStatusFilter}
-            onChange={(event) => {
-              setOrderStatusFilter(
-                event.target.value as "all" | "pending_payment" | "pending_confirmation" | "paid" | "canceled",
-              );
-              setOrdersPage(1);
-            }}
-            aria-label="Filtrer les commandes par statut"
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          >
-            <option value="all">Tous les statuts</option>
-            <option value="pending_payment">En attente paiement</option>
-            <option value="pending_confirmation">Paiement a la livraison</option>
-            <option value="paid">Payee</option>
-            <option value="canceled">Annulee</option>
-          </select>
-          <select
-            value={`${orderSortBy}:${orderSortDir}`}
-            onChange={(event) => {
-              const [sortBy, sortDir] = event.target.value.split(":") as [
-                "createdAt" | "total",
-                "asc" | "desc",
-              ];
-              setOrderSortBy(sortBy);
-              setOrderSortDir(sortDir);
-              setOrdersPage(1);
-            }}
-            aria-label="Tri des commandes"
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          >
-            <option value="createdAt:desc">Plus recentes</option>
-            <option value="createdAt:asc">Plus anciennes</option>
-            <option value="total:desc">Montant decroissant</option>
-            <option value="total:asc">Montant croissant</option>
-          </select>
-        </div>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={exportOrdersCsv}
-            className="rounded border border-slate-300 px-3 py-1 text-xs"
-          >
-            Export CSV (page courante)
-          </button>
-          <select
-            value={String(ordersPageSize)}
-            onChange={(event) => {
-              setOrdersPageSize(Number(event.target.value));
-              setOrdersPage(1);
-            }}
-            aria-label="Taille de page commandes"
-            className="rounded border border-slate-200 px-2 py-1 text-xs"
-          >
-            <option value="10">10 / page</option>
-            <option value="20">20 / page</option>
-            <option value="50">50 / page</option>
-          </select>
-        </div>
-        {ordersLoading ? <p className="text-sm text-slate-500">Chargement des commandes...</p> : null}
-        {!ordersLoading && orders.length === 0 ? (
-          <p className="text-sm text-slate-500">Aucune commande enregistree.</p>
-        ) : null}
-        <div className="space-y-2">
-          {orders.map((order) => (
-            <article
-              key={order.orderId}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <strong>{order.orderId}</strong>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{order.status}</span>
-              </div>
-              <p className="text-slate-600">
-                {order.customerName} ({order.customerEmail})
-              </p>
-              <p className="text-slate-600">
-                Total: {currency.format(order.total)} - Articles:{" "}
-                {order.lines?.reduce((sum, line) => sum + line.quantity, 0) ?? 0}
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <select
-                  value={order.status}
-                  onChange={(event) =>
-                    void updateOrderStatus(
-                      order.orderId,
-                      event.target.value as "pending_payment" | "pending_confirmation" | "paid" | "canceled",
-                    )
-                  }
-                  aria-label={`Statut de ${order.orderId}`}
-                  disabled={updatingOrderId === order.orderId}
-                  className="rounded border border-slate-200 px-2 py-1 text-xs"
-                >
-                  <option value="pending_payment">En attente paiement</option>
-                  <option value="pending_confirmation">Paiement a la livraison</option>
-                  <option value="paid">Payee</option>
-                  <option value="canceled">Annulee</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => openOrderDetails(order.orderId)}
-                  className="rounded bg-slate-900 px-3 py-1 text-xs text-white"
-                >
-                  Voir details
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-        <div className="mt-4 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
-            disabled={ordersPage <= 1}
-            className="rounded border border-slate-300 px-3 py-1 text-xs disabled:opacity-50"
-          >
-            Precedent
-          </button>
-          <span className="text-xs text-slate-500">
-            Page {ordersPage} / {ordersTotalPages}
-          </span>
-          <button
-            type="button"
-            onClick={() => setOrdersPage((p) => Math.min(ordersTotalPages, p + 1))}
-            disabled={ordersPage >= ordersTotalPages}
-            className="rounded border border-slate-300 px-3 py-1 text-xs disabled:opacity-50"
-          >
-            Suivant
-          </button>
-        </div>
-        {orderDetailsLoading ? (
-          <p className="mt-3 text-sm text-slate-500">Chargement des details...</p>
-        ) : null}
-        {selectedOrder ? (
-          <article className="mt-4 rounded-lg border border-slate-200 p-3 text-sm">
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="font-semibold">{selectedOrder.orderId}</h3>
-              <button
-                type="button"
-                onClick={() => setSelectedOrder(null)}
-                className="rounded border border-slate-300 px-2 py-0.5 text-xs"
-              >
-                Fermer
-              </button>
-            </div>
-            <p className="text-slate-600">
-              {selectedOrder.customerName} ({selectedOrder.customerEmail})
-            </p>
-            <div className="mt-2 space-y-1">
-              {selectedOrder.lines.map((line) => (
-                <div
-                  key={`${selectedOrder.orderId}-${line.id}`}
-                  className="flex items-center justify-between rounded border border-slate-100 px-2 py-1"
-                >
-                  <span>
-                    {line.name} x {line.quantity}
-                  </span>
-                  <strong>{currency.format(line.lineTotal)}</strong>
-                </div>
-              ))}
-            </div>
-          </article>
-        ) : null}
+      <BannerFormModal
+        open={isBannerFormOpen}
+        editingId={editingBannerId}
+        form={bannerForm}
+        onClose={cancelEditBanner}
+        onChange={setBannerForm}
+        onSubmit={submitBannerForm}
+      />
+
+      <section id="dashboard-orders" className={activeSection === "orders" ? "block" : "hidden"}>
+        <OrdersSection
+          orders={orders}
+          ordersTotal={ordersTotal}
+          ordersPage={ordersPage}
+          ordersTotalPages={ordersTotalPages}
+          ordersPageSize={ordersPageSize}
+          ordersLoading={ordersLoading}
+          orderQuery={orderQuery}
+          orderStatusFilter={orderStatusFilter}
+          orderSortValue={`${orderSortBy}:${orderSortDir}`}
+          selectedOrder={selectedOrder}
+          orderDetailsLoading={orderDetailsLoading}
+          updatingOrderId={updatingOrderId}
+          currency={currency}
+          onQueryChange={(query) => {
+            setOrderQuery(query);
+            setOrdersPage(1);
+          }}
+          onStatusFilterChange={(filter) => {
+            setOrderStatusFilter(filter);
+            setOrdersPage(1);
+          }}
+          onSortChange={(sortBy, sortDir) => {
+            setOrderSortBy(sortBy);
+            setOrderSortDir(sortDir);
+            setOrdersPage(1);
+          }}
+          onPageSizeChange={(size) => {
+            setOrdersPageSize(size);
+            setOrdersPage(1);
+          }}
+          onPageChange={setOrdersPage}
+          onExportCsv={exportOrdersCsv}
+          onUpdateStatus={updateOrderStatus}
+          onOpenDetails={openOrderDetails}
+          onCloseDetails={() => setSelectedOrder(null)}
+        />
       </section>
 
-      <section
-        id="dashboard-users"
-        className={`${activeSection === "users" ? "block" : "hidden"} rounded-2xl border border-slate-200 bg-white p-5 shadow-sm`}
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Utilisateurs</h2>
-          <span className="text-sm text-slate-500">{users.length} utilisateur(s)</span>
-        </div>
-        <form onSubmit={submitUserForm} className="mb-4 grid gap-2 md:grid-cols-3">
-          <input
-            value={userForm.firstName}
-            onChange={(event) => setUserForm((p) => ({ ...p, firstName: event.target.value }))}
-            placeholder="Prenom"
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          />
-          <input
-            value={userForm.lastName}
-            onChange={(event) => setUserForm((p) => ({ ...p, lastName: event.target.value }))}
-            placeholder="Nom"
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          />
-          <input
-            type="email"
-            value={userForm.email}
-            onChange={(event) => setUserForm((p) => ({ ...p, email: event.target.value }))}
-            placeholder="Email"
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          />
-          <input
-            value={userForm.phone}
-            onChange={(event) => setUserForm((p) => ({ ...p, phone: event.target.value }))}
-            placeholder="Telephone"
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          />
-          <input
-            value={userForm.city}
-            onChange={(event) => setUserForm((p) => ({ ...p, city: event.target.value }))}
-            placeholder="Ville"
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          />
-          <select
-            value={userForm.status}
-            onChange={(event) =>
-              setUserForm((p) => ({ ...p, status: event.target.value as "active" | "inactive" }))
-            }
-            aria-label="Statut utilisateur"
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          >
-            <option value="active">active</option>
-            <option value="inactive">inactive</option>
-          </select>
-          <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-sm text-white md:col-span-3">
-            {editingUserId ? "Enregistrer l'utilisateur" : "Ajouter un utilisateur"}
-          </button>
-          {editingUserId ? (
-            <button
-              type="button"
-              onClick={cancelEditUser}
-              className="rounded border border-slate-300 px-4 py-2 text-sm md:col-span-3"
-            >
-              Annuler la modification
-            </button>
-          ) : null}
-        </form>
-        {usersLoading ? <p className="text-sm text-slate-500">Chargement des utilisateurs...</p> : null}
-        {!usersLoading && users.length === 0 ? (
-          <p className="text-sm text-slate-500">Aucun utilisateur enregistre.</p>
-        ) : null}
-        <div className="space-y-2">
-          {users.map((user) => (
-            <article
-              key={user.id}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <strong>
-                  {user.firstName} {user.lastName}
-                </strong>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{user.status}</span>
-              </div>
-              <p className="text-slate-600">{user.email}</p>
-              <p className="text-slate-600">
-                {user.phone} - {user.city}
-              </p>
-              <div className="mt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => startEditUser(user)}
-                  className="rounded bg-indigo-100 px-3 py-1 text-xs text-indigo-700"
-                >
-                  Modifier
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeUser(user.id)}
-                  className="rounded bg-rose-100 px-3 py-1 text-xs text-rose-700"
-                >
-                  Supprimer
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
+      <section id="dashboard-users" className={activeSection === "users" ? "block" : "hidden"}>
+        <UsersSection
+          users={users}
+          loading={usersLoading}
+          onCreate={startCreateUser}
+          onEdit={startEditUser}
+          onRemove={removeUser}
+        />
+      </section>
+
+      <UserFormModal
+        open={isUserFormOpen}
+        editingId={editingUserId}
+        form={userForm}
+        onClose={cancelEditUser}
+        onChange={setUserForm}
+        onSubmit={submitUserForm}
+      />
+
+      <section id="dashboard-settings" className={activeSection === "settings" ? "block" : "hidden"}>
+        <SettingsPanel
+          settings={shopSettings}
+          loading={settingsLoading}
+          saving={settingsSaving}
+          onChange={setShopSettings}
+          onSave={saveShopSettings}
+          onReset={() => setShopSettings(DEFAULT_SHOP_SETTINGS)}
+        />
       </section>
       </div>
       </div>
