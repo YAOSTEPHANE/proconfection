@@ -12,6 +12,19 @@ import {
 } from "@/lib/catalog";
 import type { DashboardCategory } from "@/lib/dashboard-content";
 
+function normalizeCategoryKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function productMatchesCategory(productCategory: string, categoryName: string): boolean {
+  return normalizeCategoryKey(productCategory) === normalizeCategoryKey(categoryName);
+}
+
 export default function CategoriesPage() {
   const [dynamicCategories, setDynamicCategories] = useState<DashboardCategory[]>([]);
   const [products, setProducts] = useState<Product[]>(defaultProducts);
@@ -58,10 +71,13 @@ export default function CategoriesPage() {
       name: category.name,
       slug: category.slug,
       image:
-        (products.find((product) => product.category === category.name)?.image ??
+        (products.find((product) => productMatchesCategory(product.category, category.name))
+          ?.image ??
           category.image) ||
         categoryImageMap[category.name as keyof typeof categoryImageMap],
-      count: products.filter((product) => product.category === category.name).length,
+      count: products.filter((product) =>
+        productMatchesCategory(product.category, category.name),
+      ).length,
     }));
   }, [dynamicCategories, products]);
 

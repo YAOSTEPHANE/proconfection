@@ -62,6 +62,19 @@ function shortenLabel(label: string, maxLength = 26): string {
   return label.length > maxLength ? `${label.slice(0, maxLength - 1)}…` : label;
 }
 
+function normalizeCategoryKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function productMatchesCategory(productCategory: string, categoryName: string): boolean {
+  return normalizeCategoryKey(productCategory) === normalizeCategoryKey(categoryName);
+}
+
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string | "Tous">(
     "Tous",
@@ -311,26 +324,33 @@ export default function Home() {
   );
 
   const subcategoryHighlights = useMemo(() => {
-    return categories.flatMap((categoryName) => {
-      const category =
-        activeCategoryCards.find((entry) => entry.name === categoryName) ?? {
-          id: `fallback-${categoryName}`,
-          name: categoryName,
-          image: categoryImageMap[categoryName as keyof typeof categoryImageMap],
-        };
-      const subcategories =
-        categorySubcategoriesMap[categoryName as keyof typeof categorySubcategoriesMap] ?? [];
+    return activeCategoryCards.flatMap((category) => {
+      const fromCatalog =
+        categorySubcategoriesMap[category.name as keyof typeof categorySubcategoriesMap] ?? [];
+      const fromProducts = [
+        ...new Set(
+          products
+            .filter((product) => productMatchesCategory(product.category, category.name))
+            .map((product) => product.subcategory?.trim() ?? "")
+            .filter((subcategory) => subcategory.length > 0),
+        ),
+      ];
+      const subcategories = [...new Set([...fromCatalog, ...fromProducts])];
       return subcategories.map((subcategory) => ({
         id: `${category.id}-${subcategory}`,
         name: subcategory,
-        parentCategory: categoryName,
+        parentCategory: category.name,
         image:
           products.find(
             (product) =>
-              product.category === categoryName && product.subcategory === subcategory,
+              productMatchesCategory(product.category, category.name) &&
+              product.subcategory === subcategory,
           )?.image ??
-          products.find((product) => product.category === categoryName)?.image ??
-          (category.image || categoryImageMap[categoryName as keyof typeof categoryImageMap]),
+          products.find((product) => productMatchesCategory(product.category, category.name))
+            ?.image ??
+          (category.image ||
+            categoryImageMap[category.name as keyof typeof categoryImageMap] ||
+            FALLBACK_IMAGE),
       }));
     });
   }, [activeCategoryCards, products]);
@@ -342,14 +362,16 @@ export default function Home() {
     [showAllSubcategories, subcategoryHighlights],
   );
   const productsByCategory = useMemo(() => {
-    return activeCategoryCards.map((category) => ({
-      category: category.name,
-      slug: category.slug,
-      items: [...products]
-        .filter((product) => product.category === category.name)
-        .reverse()
-        .slice(0, 6),
-    }));
+    return activeCategoryCards
+      .map((category) => ({
+        category: category.name,
+        slug: category.slug,
+        items: [...products]
+          .filter((product) => productMatchesCategory(product.category, category.name))
+          .reverse()
+          .slice(0, 6),
+      }))
+      .filter((group) => group.items.length > 0);
   }, [activeCategoryCards, products]);
   const flashProducts = useMemo(
     () => {

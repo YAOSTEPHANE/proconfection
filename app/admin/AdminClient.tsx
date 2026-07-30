@@ -220,11 +220,20 @@ export default function AdminClient() {
   const [shopSettings, setShopSettings] = useState<ShopSettings>(DEFAULT_SHOP_SETTINGS);
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [settingsSaving, setSettingsSaving] = useState(false);
-  const availableProductCategories = categories;
-  const availableProductSubcategories = useMemo(
-    () => categorySubcategoriesMap[form.category] ?? [],
-    [form.category],
-  );
+  const availableProductCategories = useMemo(() => {
+    const fromDashboard = dashboardCategories
+      .filter((category) => category.isActive)
+      .map((category) => category.name);
+    return [...new Set([...categories, ...fromDashboard])];
+  }, [dashboardCategories]);
+  const availableProductSubcategories = useMemo(() => {
+    const fromCatalog = categorySubcategoriesMap[form.category] ?? [];
+    const fromProducts = items
+      .filter((item) => item.category === form.category)
+      .map((item) => item.subcategory?.trim() ?? "")
+      .filter((subcategory) => subcategory.length > 0);
+    return [...new Set([...fromCatalog, ...fromProducts])];
+  }, [form.category, items]);
 
   const totalProducts = useMemo(() => items.length, [items.length]);
   const filteredItems = useMemo(() => {
