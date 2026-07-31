@@ -35,7 +35,7 @@ export default function CategoriesPage() {
       try {
         const [categoriesResponse, productsResponse] = await Promise.all([
           fetch("/api/categories"),
-          fetch("/api/products"),
+          fetch("/api/products", { cache: "no-store" }),
         ]);
         const categoriesData = (await categoriesResponse.json()) as DashboardCategory[] | { error?: string };
         const productsData = (await productsResponse.json()) as Product[] | { error?: string };

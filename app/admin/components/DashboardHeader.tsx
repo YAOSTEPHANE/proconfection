@@ -214,34 +214,36 @@ export function PremiumModal({
   }
 
   return createPortal(
-    <div className="admin-modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div
-        className={`admin-modal-panel admin-animate-in flex max-h-[90vh] w-full ${sizeClass} flex-col overflow-hidden`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="premium-modal-title"
-      >
-        <div className="relative border-b border-stone-100 bg-white px-6 py-4">
-          <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-[#b8956c] to-transparent" />
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              {subtitle ? (
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#b8956c]">
-                  {subtitle}
-                </p>
-              ) : null}
-              <h2 id="premium-modal-title" className="text-lg font-semibold tracking-tight text-stone-900">
-                {title}
-              </h2>
+    <div className="admin-theme-scope">
+      <div className="admin-modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div
+          className={`admin-modal-panel admin-animate-in flex max-h-[90vh] w-full ${sizeClass} flex-col overflow-hidden`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="premium-modal-title"
+        >
+          <div className="relative shrink-0 border-b border-stone-100 bg-white px-6 py-4">
+            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-[#b8956c] to-transparent" />
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                {subtitle ? (
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#b8956c]">
+                    {subtitle}
+                  </p>
+                ) : null}
+                <h2 id="premium-modal-title" className="text-lg font-semibold tracking-tight text-stone-900">
+                  {title}
+                </h2>
+              </div>
+              <button type="button" onClick={onClose} className="admin-btn-ghost rounded-full px-3" aria-label="Fermer">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            <button type="button" onClick={onClose} className="admin-btn-ghost rounded-full px-3" aria-label="Fermer">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
+          <div className="min-h-0 flex-1 overflow-y-auto bg-white">{children}</div>
         </div>
-        <div className="overflow-y-auto bg-white">{children}</div>
       </div>
     </div>,
     document.body,

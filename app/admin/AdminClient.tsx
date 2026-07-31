@@ -44,6 +44,8 @@ type ProductForm = {
   newPrice: string;
   reduction: string;
   stock: string;
+  sizes: string;
+  sizePrices: Record<string, string>;
   image: string;
   images: string[];
   description: string;
@@ -133,6 +135,80 @@ type DashboardSection =
   | "settings";
 type ProductMenuTarget = "dashboard-products-form" | "dashboard-products-search" | "dashboard-products-list";
 
+const AGE_PRESETS = [
+  ["3 ans", "4 ans", "5 ans", "6 ans"],
+  ["5 ans", "6 ans", "7 ans", "8 ans"],
+  ["6 ans", "8 ans", "10 ans", "12 ans"],
+  ["8 ans", "10 ans", "12 ans", "14 ans"],
+  ["10 ans", "12 ans", "14 ans", "16 ans"],
+] as const;
+
+function parseAgesInput(value: string): string[] {
+  return [
+    ...new Set(
+      value
+        .split(/[,;\n]+/)
+        .map((entry) => entry.trim().replace(/\s+/g, " "))
+        .filter((entry) => entry.length > 0),
+    ),
+  ];
+}
+
+function formatAgesInput(sizes: string[] | undefined): string {
+  return (sizes ?? []).join(", ");
+}
+
+function parseAgeNumber(age: string): number | null {
+  const match = age.match(/\d+(?:[.,]\d+)?/);
+  if (!match) {
+    return null;
+  }
+  const parsed = Number(match[0].replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function buildSizePrices(
+  ages: string[],
+  basePrice: number,
+  previous: Record<string, string> = {},
+  forceRecalculate = false,
+): Record<string, string> {
+  const numericAges = ages
+    .map((age) => ({ age, value: parseAgeNumber(age) }))
+    .filter((entry): entry is { age: string; value: number } => entry.value !== null);
+  const minAge =
+    numericAges.length > 0 ? Math.min(...numericAges.map((entry) => entry.value)) : null;
+
+  const next: Record<string, string> = {};
+  ages.forEach((age, index) => {
+    if (!forceRecalculate && previous[age]?.trim()) {
+      next[age] = previous[age];
+      return;
+    }
+    const ageNumber = parseAgeNumber(age);
+    if (ageNumber !== null && minAge !== null && Number.isFinite(basePrice) && basePrice > 0) {
+      next[age] = String(Math.round(basePrice + (ageNumber - minAge) * 500));
+      return;
+    }
+    if (Number.isFinite(basePrice) && basePrice > 0) {
+      next[age] = String(Math.round(basePrice + index * 1000));
+      return;
+    }
+    next[age] = previous[age] ?? "";
+  });
+  return next;
+}
+
+function serializeSizePrices(sizePrices: Record<string, string>): Record<string, number> | undefined {
+  const entries = Object.entries(sizePrices)
+    .map(([age, value]) => [age, Number(value)] as const)
+    .filter(([, value]) => Number.isFinite(value) && value > 0);
+  if (entries.length === 0) {
+    return undefined;
+  }
+  return Object.fromEntries(entries);
+}
+
 const initialForm: ProductForm = {
   id: "",
   name: "",
@@ -142,6 +218,8 @@ const initialForm: ProductForm = {
   newPrice: "",
   reduction: "",
   stock: "",
+  sizes: "",
+  sizePrices: {},
   image: "",
   images: [],
   description: "",
@@ -409,7 +487,7 @@ export default function AdminClient() {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch("/api/products");
+        const response = await fetch("/api/products", { cache: "no-store" });
         const data = (await response.json()) as Product[] | { error?: string };
         if (!response.ok || !Array.isArray(data)) {
           const message =
@@ -643,6 +721,12 @@ export default function AdminClient() {
       return;
     }
 
+    const ages = parseAgesInput(form.sizes);
+    const sizePrices = serializeSizePrices(
+      ages.length > 0
+        ? buildSizePrices(ages, price, form.sizePrices)
+        : {},
+    );
     const id = editingId ?? `p-${crypto.randomUUID().slice(0, 8)}`;
     const product: Product = {
       id,
@@ -656,6 +740,8 @@ export default function AdminClient() {
       image: mainImage,
       images: mergedImages,
       description: form.description || "Description indisponible.",
+      sizes: ages.length > 0 ? ages : undefined,
+      sizePrices,
     };
 
     try {
@@ -697,6 +783,10 @@ export default function AdminClient() {
   function startEditProduct(product: Product) {
     setIsProductFormOpen(true);
     setEditingId(product.id);
+    const ages = product.sizes ?? [];
+    const existingPrices = Object.fromEntries(
+      Object.entries(product.sizePrices ?? {}).map(([age, value]) => [age, String(value)]),
+    );
     setForm({
       id: product.id,
       name: product.name,
@@ -706,6 +796,8 @@ export default function AdminClient() {
       newPrice: String(product.price),
       reduction: product.discountPercentage ? String(product.discountPercentage) : "",
       stock: Number.isFinite(product.stock) ? String(product.stock) : "",
+      sizes: formatAgesInput(ages),
+      sizePrices: buildSizePrices(ages, product.price, existingPrices),
       image: product.image,
       images: (product.images ?? []).filter((image) => image !== product.image),
       description: product.description,
@@ -729,6 +821,10 @@ export default function AdminClient() {
   function duplicateProduct(product: Product) {
     setIsProductFormOpen(true);
     setEditingId(null);
+    const ages = product.sizes ?? [];
+    const existingPrices = Object.fromEntries(
+      Object.entries(product.sizePrices ?? {}).map(([age, value]) => [age, String(value)]),
+    );
     setForm({
       id: "",
       name: `${product.name} (copie)`,
@@ -738,11 +834,32 @@ export default function AdminClient() {
       newPrice: String(product.price),
       reduction: product.discountPercentage ? String(product.discountPercentage) : "",
       stock: Number.isFinite(product.stock) ? String(product.stock) : "",
+      sizes: formatAgesInput(ages),
+      sizePrices: buildSizePrices(ages, product.price, existingPrices),
       image: product.image,
       images: (product.images ?? []).filter((image) => image !== product.image),
       description: product.description,
     });
     goToProductTarget("dashboard-products-form");
+  }
+
+  function updateAges(nextSizes: string) {
+    const ages = parseAgesInput(nextSizes);
+    const basePrice = Number(form.newPrice);
+    setForm((previous) => ({
+      ...previous,
+      sizes: nextSizes,
+      sizePrices: buildSizePrices(ages, basePrice, previous.sizePrices),
+    }));
+  }
+
+  function recalculateAgePrices() {
+    const ages = parseAgesInput(form.sizes);
+    const basePrice = Number(form.newPrice);
+    setForm((previous) => ({
+      ...previous,
+      sizePrices: buildSizePrices(ages, basePrice, previous.sizePrices, true),
+    }));
   }
 
   async function handleProductImagesUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -1487,9 +1604,7 @@ export default function AdminClient() {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="admin-label">
-                    Stock disponible
-                  </label>
+                  <label className="admin-label">Stock disponible</label>
                   <input
                     value={form.stock}
                     onChange={(event) => setForm((p) => ({ ...p, stock: event.target.value }))}
@@ -1498,6 +1613,81 @@ export default function AdminClient() {
                     min={0}
                     className="admin-input"
                   />
+                </div>
+                <div className="space-y-2">
+                  <label className="admin-label">Âges de l&apos;enfant (tailles)</label>
+                  <input
+                    value={form.sizes}
+                    onChange={(event) => updateAges(event.target.value)}
+                    placeholder="Ex: 6 ans, 8 ans, 10 ans, 12 ans"
+                    className="admin-input"
+                  />
+                  <p className="text-xs text-stone-500">
+                    Séparez les âges par des virgules. Le prix évolue selon l&apos;âge choisi sur la
+                    boutique.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {AGE_PRESETS.map((preset) => {
+                      const label = preset.join(", ");
+                      const isActive = form.sizes.trim() === label;
+                      return (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => updateAges(label)}
+                          className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                            isActive
+                              ? "bg-[#b8956c] text-white shadow-sm"
+                              : "bg-[#f5efe4] text-[#9a7b4f] hover:bg-[#ede4d4]"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {parseAgesInput(form.sizes).length > 0 ? (
+                    <div className="space-y-3 rounded-xl border border-stone-200 bg-[#fffcf8] p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="admin-label mb-0">Prix par âge (XOF)</p>
+                        <button
+                          type="button"
+                          onClick={recalculateAgePrices}
+                          className="admin-btn-ghost text-xs"
+                        >
+                          Recalculer depuis le prix de base
+                        </button>
+                      </div>
+                      <p className="text-xs text-stone-500">
+                        Prix de base = plus petit âge. Par défaut : +500 F par année d&apos;écart.
+                      </p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {parseAgesInput(form.sizes).map((age) => (
+                          <label key={`age-price-${age}`} className="block">
+                            <span className="mb-1 block text-xs font-medium text-stone-600">
+                              {age}
+                            </span>
+                            <input
+                              type="number"
+                              min={1}
+                              value={form.sizePrices[age] ?? ""}
+                              onChange={(event) =>
+                                setForm((previous) => ({
+                                  ...previous,
+                                  sizePrices: {
+                                    ...previous.sizePrices,
+                                    [age]: event.target.value,
+                                  },
+                                }))
+                              }
+                              placeholder="Ex: 22000"
+                              className="admin-input"
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
@@ -1661,7 +1851,7 @@ export default function AdminClient() {
                   />
                 </div>
               </div>
-              <aside className="space-y-3 rounded-2xl border border-stone-200 bg-white p-4">
+              <aside className="flex flex-col space-y-3 rounded-2xl border border-stone-200 bg-white p-4 md:sticky md:top-0">
                 <p className="admin-label">
                   Apercu instantane
                 </p>
@@ -1710,13 +1900,35 @@ export default function AdminClient() {
                     {Number.isFinite(Number(form.stock)) ? (
                       <p className="text-xs text-slate-600">Stock: {Number(form.stock)}</p>
                     ) : null}
+                    {parseAgesInput(form.sizes).length > 0 ? (
+                      <div className="space-y-1 text-xs text-slate-600">
+                        <p>Prix par âge :</p>
+                        {parseAgesInput(form.sizes).map((age) => {
+                          const agePrice = Number(form.sizePrices[age]);
+                          return (
+                            <p key={`preview-age-${age}`}>
+                              {age}:{" "}
+                              {Number.isFinite(agePrice) && agePrice > 0
+                                ? currency.format(agePrice)
+                                : "—"}
+                            </p>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400">Aucun âge défini</p>
+                    )}
                     <p className="line-clamp-3 text-xs text-slate-600">
                       {form.description || "La description du produit apparait ici."}
                     </p>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <button type="submit" className="admin-btn-primary w-full">
+                <div className="mt-auto space-y-2 border-t border-stone-100 pt-3">
+                  <button
+                    type="submit"
+                    className="admin-btn-primary w-full"
+                    style={{ color: "#fff", background: "linear-gradient(135deg, #b8956c 0%, #9a7b4f 100%)" }}
+                  >
                     {editingId ? "Enregistrer les changements" : "Ajouter au catalogue"}
                   </button>
                   <button type="button" className="admin-btn-secondary w-full" onClick={cancelEditProduct}>

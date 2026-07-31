@@ -14,13 +14,13 @@ export default function ProductImageGallery({ productName, images }: ProductImag
 
   return (
     <div className="space-y-3">
-      <div className="overflow-hidden rounded-xl">
+      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-[#f8f7f5]">
         <Image
           src={safeImages[activeIndex]}
           alt={productName}
-          width={1200}
-          height={900}
-          className="h-full max-h-[460px] w-full object-cover"
+          width={900}
+          height={1200}
+          className="h-full w-full object-contain object-center"
           priority
         />
       </div>
@@ -32,7 +32,7 @@ export default function ProductImageGallery({ productName, images }: ProductImag
               key={`${productName}-thumb-${index}`}
               type="button"
               onClick={() => setActiveIndex(index)}
-              className={`overflow-hidden rounded-lg border-2 ${
+              className={`overflow-hidden rounded-lg border-2 bg-[#f8f7f5] ${
                 index === activeIndex ? "border-violet-500" : "border-transparent"
               }`}
               aria-label={`Voir image ${index + 1}`}
@@ -41,8 +41,8 @@ export default function ProductImageGallery({ productName, images }: ProductImag
                 src={imageUrl}
                 alt={`${productName} vue ${index + 1}`}
                 width={400}
-                height={300}
-                className="h-24 w-full object-cover"
+                height={500}
+                className="aspect-[3/4] h-auto w-full object-contain object-center"
               />
             </button>
           ))}

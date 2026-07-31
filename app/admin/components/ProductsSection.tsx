@@ -84,11 +84,11 @@ export default function ProductsSection({
                 className="admin-card group overflow-hidden transition hover:-translate-y-1 hover:shadow-lg"
               >
                 {(item.images?.[0] ?? item.image)?.trim() ? (
-                  <div className="relative aspect-[4/3] overflow-hidden bg-stone-100">
+                  <div className="relative aspect-[3/4] overflow-hidden bg-[#f8f7f5]">
                     <img
                       src={item.images?.[0] ?? item.image}
                       alt={item.name}
-                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      className="h-full w-full object-contain object-center transition duration-300"
                     />
                     {(item.discountPercentage ?? 0) > 0 ? (
                       <span className="absolute left-3 top-3 admin-badge admin-badge-warning">
@@ -97,7 +97,7 @@ export default function ProductsSection({
                     ) : null}
                   </div>
                 ) : (
-                  <div className="flex aspect-[4/3] items-center justify-center bg-stone-100 text-xs text-stone-400">
+                  <div className="flex aspect-[3/4] items-center justify-center bg-[#f8f7f5] text-xs text-stone-400">
                     Aucune image
                   </div>
                 )}

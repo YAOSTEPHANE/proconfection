@@ -183,7 +183,7 @@ export default function PanierPage() {
                   alt={item.name}
                   width={120}
                   height={80}
-                  className="h-36 w-full rounded object-cover sm:h-20 sm:w-28"
+                  className="h-36 w-full rounded object-contain object-center bg-[#f8f7f5] sm:h-20 sm:w-28"
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs uppercase text-slate-500">{item.category}</p>

@@ -9,6 +9,9 @@ import {
 import { hasValidAdminSession } from "@/lib/auth";
 import { getDb } from "@/lib/mongodb";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const db = await getDb();
@@ -25,13 +28,19 @@ export async function GET() {
     if (products.length === 0) {
       const seededProducts = applySchoolPricingGrid(defaultProducts, coefficients);
       await db.collection<Product>("products").insertMany(seededProducts);
-      return NextResponse.json(seededProducts);
+      return NextResponse.json(seededProducts, {
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" },
+      });
     }
 
-    return NextResponse.json(applySchoolPricingGrid(products, coefficients));
+    return NextResponse.json(applySchoolPricingGrid(products, coefficients), {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" },
+    });
   } catch (error) {
     console.warn("GET /api/products fallback vers defaultProducts:", error);
-    return NextResponse.json(defaultProducts);
+    return NextResponse.json(defaultProducts, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" },
+    });
   }
 }
 
@@ -74,6 +83,19 @@ export async function POST(request: Request) {
           ? Math.max(0, Math.round((1 - Number(body.price) / oldPrice) * 100))
           : undefined;
 
+    const sizes =
+      Array.isArray(body.sizes) && body.sizes.length > 0
+        ? body.sizes.map((size) => size.trim()).filter((size) => size.length > 0)
+        : undefined;
+    const sizePrices =
+      body.sizePrices && typeof body.sizePrices === "object"
+        ? Object.fromEntries(
+            Object.entries(body.sizePrices)
+              .map(([age, value]) => [age.trim(), Number(value)] as const)
+              .filter(([age, value]) => age.length > 0 && Number.isFinite(value) && value > 0),
+          )
+        : undefined;
+
     const product: Product = {
       id: body.id,
       name: body.name,
@@ -86,7 +108,9 @@ export async function POST(request: Request) {
       stock,
       discountPercentage,
       description: body.description ?? "Description indisponible.",
-      sizes: body.sizes,
+      sizes,
+      sizePrices:
+        sizePrices && Object.keys(sizePrices).length > 0 ? sizePrices : undefined,
     };
 
     const db = await getDb();

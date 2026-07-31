@@ -64,7 +64,7 @@ export default function CategoryDetailPage() {
       try {
         const [categoriesResponse, productsResponse] = await Promise.all([
           fetch("/api/categories"),
-          fetch("/api/products"),
+          fetch("/api/products", { cache: "no-store" }),
         ]);
         const categoriesData = (await categoriesResponse.json()) as DashboardCategory[] | { error?: string };
         const productsData = (await productsResponse.json()) as Product[] | { error?: string };
@@ -218,13 +218,13 @@ export default function CategoryDetailPage() {
                 -{discount}%
               </span>
               <Link href={`/ventes-flash/${product.id}`} className="block">
-                <div className="relative h-56 w-full overflow-hidden">
+                <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#f8f7f5]">
                   <Image
                     src={primaryImage}
                     alt={product.name}
                     width={900}
-                    height={600}
-                    className="absolute inset-0 h-full w-full object-contain bg-white transition duration-300 group-hover:opacity-0"
+                    height={1200}
+                    className="absolute inset-0 h-full w-full object-contain object-center transition duration-300 group-hover:opacity-0"
                     onError={(event) => {
                       event.currentTarget.src = FALLBACK_IMAGE;
                     }}
@@ -233,8 +233,8 @@ export default function CategoryDetailPage() {
                     src={hoverImage}
                     alt={`${product.name} - vue secondaire`}
                     width={900}
-                    height={600}
-                    className="absolute inset-0 h-full w-full object-contain bg-white opacity-0 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
+                    height={1200}
+                    className="absolute inset-0 h-full w-full object-contain object-center opacity-0 transition duration-300 group-hover:opacity-100"
                     onError={(event) => {
                       event.currentTarget.src = FALLBACK_IMAGE;
                     }}
@@ -266,7 +266,7 @@ export default function CategoryDetailPage() {
                     <option value="">Choisir la taille</option>
                     {product.sizes?.map((size) => (
                       <option key={`category-size-${product.id}-${size}`} value={size}>
-                        {size}
+                        {size} — {currency.format(getProductPriceForSize(product, size))}
                       </option>
                     ))}
                   </select>

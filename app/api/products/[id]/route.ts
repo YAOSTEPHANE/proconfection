@@ -45,6 +45,19 @@ export async function PUT(request: Request, { params }: Params) {
           ? Math.max(0, Math.round((1 - Number(body.price) / oldPrice) * 100))
           : undefined;
 
+    const sizes =
+      Array.isArray(body.sizes) && body.sizes.length > 0
+        ? body.sizes.map((size) => size.trim()).filter((size) => size.length > 0)
+        : undefined;
+    const sizePrices =
+      body.sizePrices && typeof body.sizePrices === "object"
+        ? Object.fromEntries(
+            Object.entries(body.sizePrices)
+              .map(([age, value]) => [age.trim(), Number(value)] as const)
+              .filter(([age, value]) => age.length > 0 && Number.isFinite(value) && value > 0),
+          )
+        : undefined;
+
     const db = await getDb();
     const update: Partial<Product> = {
       name: body.name.trim(),
@@ -58,9 +71,26 @@ export async function PUT(request: Request, { params }: Params) {
       discountPercentage,
       description: body.description?.trim() || "Description indisponible.",
     };
-    const result = await db
-      .collection<Product>("products")
-      .updateOne({ id }, { $set: update });
+    if (sizes && sizes.length > 0) {
+      update.sizes = sizes;
+    }
+    if (sizePrices && Object.keys(sizePrices).length > 0) {
+      update.sizePrices = sizePrices;
+    }
+    const unsetFields: Record<string, ""> = {};
+    if (!sizes || sizes.length === 0) {
+      unsetFields.sizes = "";
+    }
+    if (!sizePrices || Object.keys(sizePrices).length === 0) {
+      unsetFields.sizePrices = "";
+    }
+    const result = await db.collection<Product>("products").updateOne(
+      { id },
+      {
+        $set: update,
+        ...(Object.keys(unsetFields).length > 0 ? { $unset: unsetFields } : {}),
+      },
+    );
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: "Produit introuvable." }, { status: 404 });

@@ -33,6 +33,34 @@
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
+/* Scope thème admin pour les modales portées hors du layout */
+.admin-theme-scope {
+  color-scheme: light;
+  --admin-bg: #f7f5f1;
+  --admin-bg-accent: #efe9df;
+  --admin-surface: #ffffff;
+  --admin-surface-elevated: #fffcf8;
+  --admin-border: rgba(28, 25, 23, 0.08);
+  --admin-border-gold: rgba(184, 149, 108, 0.35);
+  --admin-text: #1c1917;
+  --admin-text-muted: #78716c;
+  --admin-gold: #b8956c;
+  --admin-gold-deep: #9a7b4f;
+  --admin-gold-light: #f5efe4;
+  --admin-rose: #c45c7a;
+  --admin-rose-light: #fdf2f5;
+  --admin-emerald: #0d9488;
+  --admin-emerald-light: #ecfdf5;
+  --admin-amber: #d97706;
+  --admin-amber-light: #fffbeb;
+  --admin-shadow: 0 1px 2px rgba(28, 25, 23, 0.04), 0 8px 32px rgba(28, 25, 23, 0.06);
+  --admin-shadow-lg: 0 4px 6px rgba(28, 25, 23, 0.03), 0 24px 64px rgba(28, 25, 23, 0.08);
+  --admin-radius: 1.25rem;
+  --admin-radius-lg: 1.75rem;
+  color: var(--admin-text);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
 .admin-dashboard * {
   scrollbar-width: thin;
   scrollbar-color: rgba(184, 149, 108, 0.4) transparent;
@@ -81,10 +109,12 @@
   font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: #fff;
-  background: linear-gradient(135deg, var(--admin-gold) 0%, var(--admin-gold-deep) 100%);
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #b8956c 0%, #9a7b4f 100%) !important;
   box-shadow: 0 2px 8px rgba(154, 123, 79, 0.35);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border: none;
+  cursor: pointer;
 }
 
 .admin-btn-primary:hover {
@@ -107,10 +137,11 @@
   padding: 0.625rem 1.25rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--admin-text);
-  background: var(--admin-surface);
-  border: 1px solid var(--admin-border-gold);
+  color: #1c1917 !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(184, 149, 108, 0.35);
   transition: background 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
 }
 
 .admin-btn-secondary:hover {

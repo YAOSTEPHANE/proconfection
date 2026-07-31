@@ -75,6 +75,7 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
           <div className="flex flex-wrap items-center gap-2">
             {product.sizes?.map((size) => {
               const isActive = selectedSize === size;
+              const sizePrice = getProductPriceForSize(product, size);
               return (
                 <button
                   key={`${product.id}-${size}`}
@@ -87,6 +88,9 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
                   }`}
                 >
                   {size}
+                  <span className={`ml-1 ${isActive ? "text-violet-100" : "text-slate-500"}`}>
+                    · {currency.format(sizePrice)}
+                  </span>
                 </button>
               );
             })}

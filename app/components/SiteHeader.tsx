@@ -50,7 +50,7 @@ export default function SiteHeader() {
 
     async function loadProducts() {
       try {
-        const response = await fetch("/api/products");
+        const response = await fetch("/api/products", { cache: "no-store" });
         const data = (await response.json()) as Product[] | { error?: string };
         if (!response.ok || !Array.isArray(data)) {
           return;
