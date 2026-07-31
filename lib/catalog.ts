@@ -1,5 +1,12 @@
 export type Category = string;
 
+export type ComboAgeConfig = {
+  tshirtSize: string;
+  shortSize: string;
+  tshirtPrice: number;
+  shortPrice: number;
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -14,6 +21,12 @@ export type Product = {
   description: string;
   sizes?: string[];
   sizePrices?: Record<string, number>;
+  /** Prix T-shirt global (fallback) pour un complet T-shirt + short */
+  tshirtPrice?: number;
+  /** Prix short global (fallback) pour un complet T-shirt + short */
+  shortPrice?: number;
+  /** Par âge : taille T-shirt, taille short (1-6) et prix de chaque pièce */
+  comboByAge?: Record<string, ComboAgeConfig>;
 };
 
 export type SchoolPricingCoefficients = {
@@ -28,8 +41,55 @@ export const DEFAULT_SCHOOL_PRICING_COEFFICIENTS: SchoolPricingCoefficients = {
   jeanMermoz: 1.1,
 };
 
-function parseNumericSize(size: string): number | null {
-  const match = size.match(/\d+(?:[.,]\d+)?/);
+function deriveSizePrice(product: Product, _selectedSize: string): number {
+  return product.price;
+}
+
+export const DEFAULT_TSHIRT_COMPONENT_PRICE = 6500;
+export const DEFAULT_SHORT_COMPONENT_PRICE = 6000;
+
+/** Tailles vêtement pour shorts (1 à 6) */
+export const CLOTHING_SIZE_OPTIONS = ["1", "2", "3", "4", "5", "6"] as const;
+
+/** Tailles T-shirt : enfant 4 ans → adult XXL */
+export const TSHIRT_SIZE_OPTIONS = [
+  "4 ans",
+  "6 ans",
+  "8 ans",
+  "10 ans",
+  "12 ans",
+  "14 ans",
+  "16 ans",
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL",
+] as const;
+
+export type TshirtSizeOption = (typeof TSHIRT_SIZE_OPTIONS)[number];
+
+export function isTshirtSizeOption(value: string): value is TshirtSizeOption {
+  const trimmed = value.trim();
+  return TSHIRT_SIZE_OPTIONS.some((option) => option.toLowerCase() === trimmed.toLowerCase());
+}
+
+export function normalizeTshirtSize(value: string): TshirtSizeOption | null {
+  const trimmed = value.trim();
+  const match = TSHIRT_SIZE_OPTIONS.find(
+    (option) => option.toLowerCase() === trimmed.toLowerCase(),
+  );
+  return match ?? null;
+}
+
+export function getComboTotalPrice(tshirtPrice: number, shortPrice: number): number {
+  const tshirt = Number.isFinite(tshirtPrice) && tshirtPrice > 0 ? tshirtPrice : 0;
+  const short = Number.isFinite(shortPrice) && shortPrice > 0 ? shortPrice : 0;
+  return Math.round(tshirt + short);
+}
+
+function parseAgeNumber(age: string): number | null {
+  const match = age.match(/\d+(?:[.,]\d+)?/);
   if (!match) {
     return null;
   }
@@ -37,36 +97,281 @@ function parseNumericSize(size: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function deriveSizePrice(product: Product, selectedSize: string): number {
-  if (!product.sizes || product.sizes.length === 0) {
-    return product.price;
+/** Associe un âge à une taille short 1–6 */
+export function defaultShortSizeForAge(age: string): string {
+  const ageNumber = parseAgeNumber(age);
+  if (ageNumber === null) {
+    return "1";
   }
-  const sizeIndex = product.sizes.findIndex((size) => size === selectedSize);
-  if (sizeIndex < 0) {
-    return product.price;
-  }
+  if (ageNumber <= 5) return "1";
+  if (ageNumber <= 7) return "2";
+  if (ageNumber <= 9) return "3";
+  if (ageNumber <= 11) return "4";
+  if (ageNumber <= 13) return "5";
+  return "6";
+}
 
-  const numericSizes = product.sizes
-    .map((size) => parseNumericSize(size))
-    .filter((value): value is number => value !== null);
-  const selectedNumericSize = parseNumericSize(selectedSize);
-  if (numericSizes.length === product.sizes.length && selectedNumericSize !== null) {
-    const minSize = Math.min(...numericSizes);
-    return Math.round(product.price + (selectedNumericSize - minSize) * 500);
+/** Associe un âge à une taille T-shirt (4 ans → XXL) */
+export function defaultTshirtSizeForAge(age: string): string {
+  const normalized = normalizeTshirtSize(age);
+  if (normalized) {
+    return normalized;
   }
+  const ageNumber = parseAgeNumber(age);
+  if (ageNumber === null) {
+    return "M";
+  }
+  if (ageNumber <= 4) return "4 ans";
+  if (ageNumber <= 6) return "6 ans";
+  if (ageNumber <= 8) return "8 ans";
+  if (ageNumber <= 10) return "10 ans";
+  if (ageNumber <= 12) return "12 ans";
+  if (ageNumber <= 14) return "14 ans";
+  if (ageNumber <= 16) return "16 ans";
+  return "XXL";
+}
 
-  return Math.round(product.price + sizeIndex * 1000);
+export function buildDefaultComboByAge(
+  ages: string[],
+  tshirtPrice = DEFAULT_TSHIRT_COMPONENT_PRICE,
+  shortPrice = DEFAULT_SHORT_COMPONENT_PRICE,
+  previous: Record<string, ComboAgeConfig> = {},
+): Record<string, ComboAgeConfig> {
+  const next: Record<string, ComboAgeConfig> = {};
+  ages.forEach((age) => {
+    const existing = previous[age];
+    next[age] = {
+      tshirtSize: existing?.tshirtSize?.trim() || defaultTshirtSizeForAge(age),
+      shortSize: existing?.shortSize?.trim() || defaultShortSizeForAge(age),
+      tshirtPrice:
+        typeof existing?.tshirtPrice === "number" && existing.tshirtPrice > 0
+          ? existing.tshirtPrice
+          : tshirtPrice,
+      shortPrice:
+        typeof existing?.shortPrice === "number" && existing.shortPrice > 0
+          ? existing.shortPrice
+          : shortPrice,
+    };
+  });
+  return next;
+}
+
+export function getComboConfigForAge(
+  product: Product,
+  age?: string,
+): ComboAgeConfig | null {
+  if (!age) {
+    return null;
+  }
+  const fromMap = product.comboByAge?.[age];
+  if (fromMap) {
+    return fromMap;
+  }
+  if (
+    typeof product.tshirtPrice === "number" &&
+    typeof product.shortPrice === "number" &&
+    product.tshirtPrice > 0 &&
+    product.shortPrice > 0
+  ) {
+    return {
+      tshirtSize: defaultTshirtSizeForAge(age),
+      shortSize: defaultShortSizeForAge(age),
+      tshirtPrice: product.tshirtPrice,
+      shortPrice: product.shortPrice,
+    };
+  }
+  return null;
+}
+
+export function formatComboSelectionLabel(age: string, combo: ComboAgeConfig): string {
+  const tshirt = combo.tshirtSize.trim() || age;
+  const short = combo.shortSize.trim() || defaultShortSizeForAge(age);
+  return `${age} · T-shirt ${tshirt} · Short taille ${short}`;
+}
+
+export type ComboSelection = {
+  age: string;
+  tshirtSize: string;
+  shortSize: string;
+};
+
+export function encodeComboSelection(selection: ComboSelection): string {
+  return formatComboSelectionLabel(selection.age, {
+    tshirtSize: selection.tshirtSize,
+    shortSize: selection.shortSize,
+    tshirtPrice: 0,
+    shortPrice: 0,
+  });
+}
+
+/** Extrait âge / tailles depuis un libellé panier, ou un âge simple */
+export function parseComboSelection(value?: string): ComboSelection | null {
+  if (!value?.trim()) {
+    return null;
+  }
+  const trimmed = value.trim();
+  const match = trimmed.match(
+    /^(.+?)\s*·\s*T-shirt\s+(.+?)\s*·\s*Short\s+taille\s+(\d+)\s*$/i,
+  );
+  if (match?.[1] && match[2] && match[3]) {
+    return {
+      age: match[1].trim(),
+      tshirtSize: match[2].trim(),
+      shortSize: match[3].trim(),
+    };
+  }
+  return {
+    age: trimmed,
+    tshirtSize: trimmed,
+    shortSize: defaultShortSizeForAge(trimmed),
+  };
+}
+
+export function resolvePricingAge(product: Product, selectedSize?: string): string | undefined {
+  if (!selectedSize) {
+    return undefined;
+  }
+  const parsed = parseComboSelection(selectedSize);
+  if (!parsed) {
+    return selectedSize;
+  }
+  if (product.comboByAge?.[parsed.age] || product.sizePrices?.[parsed.age]) {
+    return parsed.age;
+  }
+  if (product.sizes?.includes(parsed.age)) {
+    return parsed.age;
+  }
+  return selectedSize;
+}
+
+export function sizePricesFromComboByAge(
+  comboByAge: Record<string, ComboAgeConfig>,
+): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(comboByAge).map(([age, combo]) => [
+      age,
+      getComboTotalPrice(combo.tshirtPrice, combo.shortPrice),
+    ]),
+  );
+}
+
+/** Valide et normalise comboByAge depuis un payload API / formulaire */
+export function parseComboByAge(raw: unknown): Record<string, ComboAgeConfig> | undefined {
+  if (!raw || typeof raw !== "object") {
+    return undefined;
+  }
+  const entries = Object.entries(raw as Record<string, unknown>)
+    .map(([age, value]) => {
+      const key = age.trim();
+      if (!key || !value || typeof value !== "object") {
+        return null;
+      }
+      const row = value as Record<string, unknown>;
+      const tshirtPrice = Number(row.tshirtPrice);
+      const shortPrice = Number(row.shortPrice);
+      if (!Number.isFinite(tshirtPrice) || tshirtPrice <= 0) {
+        return null;
+      }
+      if (!Number.isFinite(shortPrice) || shortPrice <= 0) {
+        return null;
+      }
+      const tshirtRaw =
+        typeof row.tshirtSize === "string" && row.tshirtSize.trim()
+          ? row.tshirtSize.trim()
+          : defaultTshirtSizeForAge(key);
+      const tshirtSize = normalizeTshirtSize(tshirtRaw) ?? defaultTshirtSizeForAge(key);
+      const shortRaw =
+        typeof row.shortSize === "string" && row.shortSize.trim()
+          ? row.shortSize.trim()
+          : defaultShortSizeForAge(key);
+      const shortSize = CLOTHING_SIZE_OPTIONS.includes(
+        shortRaw as (typeof CLOTHING_SIZE_OPTIONS)[number],
+      )
+        ? shortRaw
+        : defaultShortSizeForAge(key);
+      return [
+        key,
+        {
+          tshirtSize,
+          shortSize,
+          tshirtPrice: Math.round(tshirtPrice),
+          shortPrice: Math.round(shortPrice),
+        } satisfies ComboAgeConfig,
+      ] as const;
+    })
+    .filter((entry): entry is readonly [string, ComboAgeConfig] => entry !== null);
+
+  if (entries.length === 0) {
+    return undefined;
+  }
+  return Object.fromEntries(entries);
 }
 
 export function getProductPriceForSize(product: Product, selectedSize?: string): number {
+  if (selectedSize) {
+    const pricingAge = resolvePricingAge(product, selectedSize);
+    const combo = getComboConfigForAge(product, pricingAge);
+    if (combo) {
+      return getComboTotalPrice(combo.tshirtPrice, combo.shortPrice);
+    }
+    const explicitPrice =
+      (pricingAge ? product.sizePrices?.[pricingAge] : undefined) ??
+      product.sizePrices?.[selectedSize];
+    if (typeof explicitPrice === "number" && Number.isFinite(explicitPrice) && explicitPrice > 0) {
+      return explicitPrice;
+    }
+  }
+
+  if (
+    typeof product.tshirtPrice === "number" &&
+    typeof product.shortPrice === "number" &&
+    product.tshirtPrice > 0 &&
+    product.shortPrice > 0
+  ) {
+    return getComboTotalPrice(product.tshirtPrice, product.shortPrice);
+  }
+
   if (!selectedSize) {
     return product.price;
   }
-  const explicitPrice = product.sizePrices?.[selectedSize];
-  if (typeof explicitPrice === "number" && Number.isFinite(explicitPrice) && explicitPrice > 0) {
-    return explicitPrice;
-  }
   return deriveSizePrice(product, selectedSize);
+}
+
+export function isShortLikeProduct(name: string, id?: string): boolean {
+  const lowerName = name.toLowerCase();
+  const lowerId = (id ?? "").toLowerCase();
+  return /\bshorts?\b/.test(lowerName) || lowerId.includes("short");
+}
+
+export function isTshirtShortCombo(name: string, description?: string): boolean {
+  const text = `${name} ${description ?? ""}`.toLowerCase();
+  const hasTshirt = /t[-\s]?shirt|tee[-\s]?shirt/.test(text);
+  const hasShort = /\bshorts?\b/.test(text);
+  if (hasTshirt && hasShort) {
+    return true;
+  }
+  // Les tenues sport sont des complets T-shirt + short.
+  return /\btenue\s+sport\b/.test(text) || (text.includes("sport") && text.includes("tenue"));
+}
+
+/** Complet : le client doit choisir taille T-shirt + taille short sur la fiche */
+export function needsComboSizeSelection(product: Product): boolean {
+  if (product.comboByAge && Object.keys(product.comboByAge).length > 0) {
+    return true;
+  }
+  if (
+    typeof product.tshirtPrice === "number" &&
+    typeof product.shortPrice === "number" &&
+    product.tshirtPrice > 0 &&
+    product.shortPrice > 0
+  ) {
+    return true;
+  }
+  return isTshirtShortCombo(product.name, product.description);
+}
+
+function buildUniformSizePrices(sizes: readonly string[], price: number): Record<string, number> {
+  return Object.fromEntries(sizes.map((size) => [size, price]));
 }
 
 export const categories: Category[] = [
@@ -163,9 +468,35 @@ export function applySchoolPricingGrid(
       return { ...product, price, ...withDiscount(price, 18) };
     }
 
-    if (lowerName.includes("sport")) {
-      const price = asSchoolPrice(12000);
-      return { ...product, price, ...withDiscount(price, 14) };
+    if (lowerName.includes("sport") || isTshirtShortCombo(product.name, product.description)) {
+      const tshirtPrice = product.tshirtPrice ?? DEFAULT_TSHIRT_COMPONENT_PRICE;
+      const shortPrice = product.shortPrice ?? DEFAULT_SHORT_COMPONENT_PRICE;
+      const ages = product.sizes ?? [];
+      const comboByAge = buildDefaultComboByAge(
+        ages,
+        tshirtPrice,
+        shortPrice,
+        product.comboByAge,
+      );
+      const price = asSchoolPrice(getComboTotalPrice(tshirtPrice, shortPrice));
+      const sizePrices =
+        ages.length > 0
+          ? Object.fromEntries(
+              ages.map((age) => [
+                age,
+                getComboTotalPrice(comboByAge[age]!.tshirtPrice, comboByAge[age]!.shortPrice),
+              ]),
+            )
+          : undefined;
+      return {
+        ...product,
+        tshirtPrice,
+        shortPrice,
+        comboByAge: ages.length > 0 ? comboByAge : undefined,
+        sizePrices,
+        price,
+        ...withDiscount(price, 14),
+      };
     }
 
     if (lowerName.includes("ensemble")) {
@@ -295,11 +626,18 @@ const seedProducts: Product[] = [
     name: "Tenue sport garcon blanc et bleu",
     category: "Blaise Pascal",
     subcategory: "Tenues Sports BP",
-    price: 12000,
+    price: getComboTotalPrice(DEFAULT_TSHIRT_COMPONENT_PRICE, DEFAULT_SHORT_COMPONENT_PRICE),
     image:
       "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9092-scaled-1-c3099ec4-314f-4dbd-81fc-be4d8dc5c230.png",
     description: "Tenue de sport scolaire pour garcon.",
     sizes: ["8 ans", "10 ans", "12 ans", "14 ans"],
+    tshirtPrice: DEFAULT_TSHIRT_COMPONENT_PRICE,
+    shortPrice: DEFAULT_SHORT_COMPONENT_PRICE,
+    comboByAge: buildDefaultComboByAge(
+      ["8 ans", "10 ans", "12 ans", "14 ans"],
+      DEFAULT_TSHIRT_COMPONENT_PRICE,
+      DEFAULT_SHORT_COMPONENT_PRICE,
+    ),
   },
   {
     id: "access-sac-hibou",
@@ -318,22 +656,36 @@ const seedProducts: Product[] = [
     name: "Tenue sport fille blanc et bleu",
     category: "Blaise Pascal",
     subcategory: "Tenues Sports BP",
-    price: 12000,
+    price: getComboTotalPrice(DEFAULT_TSHIRT_COMPONENT_PRICE, DEFAULT_SHORT_COMPONENT_PRICE),
     image:
       "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9097-scaled-1-7a9a16ac-9f22-4ba1-941a-6729f921727c.png",
     description: "Tenue de sport legere pour fille.",
     sizes: ["8 ans", "10 ans", "12 ans", "14 ans"],
+    tshirtPrice: DEFAULT_TSHIRT_COMPONENT_PRICE,
+    shortPrice: DEFAULT_SHORT_COMPONENT_PRICE,
+    comboByAge: buildDefaultComboByAge(
+      ["8 ans", "10 ans", "12 ans", "14 ans"],
+      DEFAULT_TSHIRT_COMPONENT_PRICE,
+      DEFAULT_SHORT_COMPONENT_PRICE,
+    ),
   },
   {
     id: "bp-sport-garcon-blanc-bleu-2",
     name: "Tenue sport garcon logo ecole",
     category: "Blaise Pascal",
     subcategory: "Tenues Sports BP",
-    price: 12000,
+    price: getComboTotalPrice(DEFAULT_TSHIRT_COMPONENT_PRICE, DEFAULT_SHORT_COMPONENT_PRICE),
     image:
       "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9093-scaled-1-142f7e72-8052-48db-b306-3cdec91c4a6b.png",
     description: "T-shirt et short pour activites sportives.",
     sizes: ["8 ans", "10 ans", "12 ans", "14 ans"],
+    tshirtPrice: DEFAULT_TSHIRT_COMPONENT_PRICE,
+    shortPrice: DEFAULT_SHORT_COMPONENT_PRICE,
+    comboByAge: buildDefaultComboByAge(
+      ["8 ans", "10 ans", "12 ans", "14 ans"],
+      DEFAULT_TSHIRT_COMPONENT_PRICE,
+      DEFAULT_SHORT_COMPONENT_PRICE,
+    ),
   },
   {
     id: "bp-garcon-beige-short",
@@ -344,7 +696,8 @@ const seedProducts: Product[] = [
     image:
       "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_9082-scaled-c3fdd410-eff6-4d52-b4ca-28b71cd653e4.png",
     description: "Uniforme garcon beige avec short.",
-    sizes: ["5 ans", "6 ans", "7 ans", "8 ans"],
+    sizes: [...CLOTHING_SIZE_OPTIONS],
+    sizePrices: buildUniformSizePrices(CLOTHING_SIZE_OPTIONS, 25000),
   },
   {
     id: "bp-garcon-beige-short-2",
@@ -355,7 +708,8 @@ const seedProducts: Product[] = [
     image:
       "/catalog-images/c__Users_UTILISATEUR_AppData_Roaming_Cursor_User_workspaceStorage_13745dcdcf3310a01267e07c41a81bf6_images_IMG_8949-scaled-6950d7c3-dada-45d3-8f43-4c7a54a43db4.png",
     description: "Ensemble tenue scolaire beige pour primaire.",
-    sizes: ["5 ans", "6 ans", "7 ans", "8 ans"],
+    sizes: [...CLOTHING_SIZE_OPTIONS],
+    sizePrices: buildUniformSizePrices(CLOTHING_SIZE_OPTIONS, 25000),
   },
   {
     id: "bp-garcon-beige-cargo",

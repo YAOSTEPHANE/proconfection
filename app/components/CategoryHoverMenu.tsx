@@ -7,7 +7,6 @@ import {
   categoryImageMap,
   categorySubcategoriesMap,
   categoryToSlug,
-  defaultProducts,
   type Product,
 } from "@/lib/catalog";
 import type { DashboardCategory } from "@/lib/dashboard-content";
@@ -21,7 +20,7 @@ type CategoryHoverMenuProps = {
 export default function CategoryHoverMenu({
   className,
   categoryList,
-  productsList = defaultProducts,
+  productsList = [],
 }: CategoryHoverMenuProps) {
   const activeDashboardByName = new Map(
     (categoryList ?? [])

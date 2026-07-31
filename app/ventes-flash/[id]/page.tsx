@@ -43,7 +43,8 @@ async function loadProducts(): Promise<Product[]> {
       return applySchoolPricingGrid(defaultProducts, coefficients);
     }
 
-    return applySchoolPricingGrid(data, coefficients);
+    // Produits déjà en base : ne pas réécraser les prix admin / sizePrices.
+    return data;
   } catch (error) {
     console.warn("Fiche produit: fallback defaultProducts:", error);
     return defaultProducts;
@@ -66,18 +67,6 @@ export default async function VenteFlashDetailPage({ params }: VenteFlashDetailP
     );
   }
 
-  const discount =
-    typeof product.discountPercentage === "number" && product.discountPercentage > 0
-      ? product.discountPercentage
-      : typeof product.oldPrice === "number" &&
-          product.oldPrice > product.price &&
-          product.price > 0
-        ? Math.max(1, Math.round((1 - product.price / product.oldPrice) * 100))
-        : 20;
-  const oldPrice =
-    typeof product.oldPrice === "number" && product.oldPrice > product.price
-      ? product.oldPrice
-      : Math.round(product.price / (1 - discount / 100));
   const remainingStock =
     typeof product.stock === "number" ? product.stock : getRemainingStock(product.id);
   const similarProducts = products
@@ -126,41 +115,11 @@ export default async function VenteFlashDetailPage({ params }: VenteFlashDetailP
             </div>
           </div>
 
-          {product.sizes && product.sizes.length > 0 ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                Âges / tailles disponibles
-              </p>
-              <p className="mt-1 text-sm font-semibold text-slate-800">{product.sizes.join(", ")}</p>
-              <p className="mt-1 text-xs text-slate-500">
-                Le prix final dépend de l&apos;âge sélectionné ci-dessous.
-              </p>
-            </div>
-          ) : null}
-
-          <div className="flex items-end gap-3">
-            <strong className="text-2xl font-extrabold text-violet-700">
-              {currency.format(product.price)}
-            </strong>
-            <span className="pb-1 text-sm text-slate-400 line-through">
-              {currency.format(oldPrice)}
-            </span>
-            <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">
-              -{discount}%
-            </span>
-          </div>
-          <p className="text-sm font-semibold text-rose-600">
-            Plus que {remainingStock} article(s) en stock
-          </p>
-
           <div className="space-y-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Panier rapide depuis la fiche produit
-            </p>
-            <AddToCartButton product={product} />
+            <AddToCartButton product={product} remainingStock={remainingStock} />
             <Link
               href="/categories"
-              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
+              className="inline-flex rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
             >
               Voir categories
             </Link>

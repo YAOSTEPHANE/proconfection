@@ -179,7 +179,7 @@ export default function PanierPage() {
                 className="flex flex-col gap-3 rounded-xl bg-white p-4 shadow-sm sm:flex-row sm:items-center"
               >
                 <Image
-                  src={item.image}
+                  src={item.image || item.images?.[0] || "/logo-proconfection.png"}
                   alt={item.name}
                   width={120}
                   height={80}
@@ -189,7 +189,7 @@ export default function PanierPage() {
                   <p className="text-xs uppercase text-slate-500">{item.category}</p>
                   <h2 className="truncate text-base font-semibold">{item.name}</h2>
                   {item.selectedSize ? (
-                    <p className="text-xs text-slate-500">Taille: {item.selectedSize}</p>
+                    <p className="text-xs text-slate-500">{item.selectedSize}</p>
                   ) : null}
                   <p className="text-sm text-slate-600">{currency.format(item.price)}</p>
                 </div>

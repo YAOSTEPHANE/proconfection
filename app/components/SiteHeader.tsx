@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { categories, categoryToSlug, defaultProducts, type Product } from "@/lib/catalog";
+import { categories, categoryToSlug, type Product } from "@/lib/catalog";
 
 const CART_STORAGE_KEY = "proconfection_cart";
 
@@ -17,7 +17,7 @@ const currency = new Intl.NumberFormat("fr-FR", {
 export default function SiteHeader() {
   const [query, setQuery] = useState("");
   const [cartCount, setCartCount] = useState(0);
-  const [products, setProducts] = useState<Product[]>(defaultProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
 
   const searchPreview = useMemo(() => {
@@ -59,7 +59,9 @@ export default function SiteHeader() {
           setProducts(data);
         }
       } catch {
-        // Keep fallback catalog in header search.
+        if (active) {
+          setProducts([]);
+        }
       }
     }
 
@@ -116,13 +118,13 @@ export default function SiteHeader() {
               <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
                 {searchPreview.length > 0 ? (
                   <ul className="max-h-80 overflow-y-auto">
-                    {searchPreview.map((product) => (
+                    {searchPreview.filter(Boolean).map((product) => (
                       <li
                         key={`global-search-${product.id}`}
                         className="flex items-center gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0"
                       >
                         <Image
-                          src={product.image}
+                          src={product.image || product.images?.[0] || "/logo-proconfection.png"}
                           alt={product.name}
                           width={56}
                           height={56}

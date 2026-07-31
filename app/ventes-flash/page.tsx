@@ -3,42 +3,17 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import ProductSizeControls from "@/app/components/ProductSizeControls";
 import {
-  defaultProducts,
   getProductPriceForSize,
-  getRemainingStock,
+  needsComboSizeSelection,
   type Product,
 } from "@/lib/catalog";
 
-const currency = new Intl.NumberFormat("fr-FR", {
-  style: "currency",
-  currency: "XOF",
-  maximumFractionDigits: 0,
-});
-
-function getStockWidthClass(stock: number): string {
-  if (stock <= 4) return "w-1/5";
-  if (stock <= 8) return "w-2/5";
-  if (stock <= 12) return "w-3/5";
-  if (stock <= 16) return "w-4/5";
-  return "w-full";
-}
+type CartItem = Product & { quantity: number; selectedSize?: string };
+const CART_STORAGE_KEY = "proconfection_cart";
 
 const FALLBACK_IMAGE = "/logo-proconfection.png";
-
-function getDisplayDiscount(product: Product, fallbackDiscount: number): number {
-  if (typeof product.discountPercentage === "number" && product.discountPercentage > 0) {
-    return product.discountPercentage;
-  }
-  if (
-    typeof product.oldPrice === "number" &&
-    product.oldPrice > product.price &&
-    product.price > 0
-  ) {
-    return Math.max(1, Math.round((1 - product.price / product.oldPrice) * 100));
-  }
-  return fallbackDiscount;
-}
 
 function shortenLabel(label: string, maxLength = 26): string {
   return label.length > maxLength ? `${label.slice(0, maxLength - 1)}…` : label;
@@ -46,10 +21,10 @@ function shortenLabel(label: string, maxLength = 26): string {
 
 export default function VentesFlashPage() {
   const [query, setQuery] = useState("");
-  const [products, setProducts] = useState<Product[]>(defaultProducts);
-  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
+  const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
+  const [lastAddedProductId, setLastAddedProductId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -72,7 +47,7 @@ export default function VentesFlashPage() {
         }
       } catch (error) {
         if (active) {
-          setProducts(defaultProducts);
+          setProducts([]);
           setProductsError(error instanceof Error ? error.message : "Erreur de chargement.");
         }
       } finally {
@@ -93,22 +68,55 @@ export default function VentesFlashPage() {
     if (!normalizedQuery) {
       return products;
     }
-    return products.filter((product) =>
-      product.name.toLowerCase().includes(normalizedQuery),
-    );
+    return products.filter((product) => {
+      const haystack = `${product.name} ${product.category} ${product.subcategory ?? ""}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
   }, [products, query]);
 
+  function addToCart(product: Product, selectedSize?: string) {
+    const normalizedSize = selectedSize?.trim();
+    if (needsComboSizeSelection(product) && !normalizedSize) {
+      return;
+    }
+    const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
+    if (hasSizes && !needsComboSizeSelection(product) && !normalizedSize) {
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(CART_STORAGE_KEY);
+      const current = raw ? (JSON.parse(raw) as CartItem[]) : [];
+      const unitPrice = getProductPriceForSize(product, normalizedSize);
+      const existing = current.find(
+        (item) => item.id === product.id && (item.selectedSize ?? "") === (normalizedSize ?? ""),
+      );
+      const next = existing
+        ? current.map((item) =>
+            item.id === product.id && (item.selectedSize ?? "") === (normalizedSize ?? "")
+              ? { ...item, quantity: item.quantity + 1 }
+              : item,
+          )
+        : [...current, { ...product, price: unitPrice, quantity: 1, selectedSize: normalizedSize }];
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(next));
+      window.dispatchEvent(new Event("proconfection-cart-updated"));
+      setLastAddedProductId(product.id);
+      window.setTimeout(
+        () => setLastAddedProductId((currentId) => (currentId === product.id ? null : currentId)),
+        1400,
+      );
+    } catch {
+      // Ignore localStorage errors.
+    }
+  }
+
   return (
-    <main className="mx-auto max-w-7xl space-y-6 px-4 py-8">
-      <header className="flex flex-wrap items-end justify-between gap-3">
+    <main className="mx-auto max-w-7xl space-y-4 px-4 py-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-600">
-            Offres limitees
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-600">
+            Promotions
           </p>
-          <h1 className="mt-1 text-2xl font-extrabold text-slate-900">Ventes Flash | Chaque jour</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Retrouvez tous les articles en promotion et les meilleures offres du moment.
-          </p>
+          <h1 className="text-2xl font-bold text-slate-900">Ventes Flash</h1>
         </div>
         <Link
           href="/"
@@ -139,100 +147,55 @@ export default function VentesFlashPage() {
       ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {filteredProducts.map((product, index) => {
-          const selectedSize = selectedSizes[product.id] ?? "";
-          const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
-          const discount = getDisplayDiscount(product, 10 + ((index % 4) + 1) * 5);
-          const currentPrice = getProductPriceForSize(product, selectedSize || undefined);
-          const oldPrice = Math.round(currentPrice / (1 - discount / 100));
-          const remaining =
-            typeof product.stock === "number" ? product.stock : getRemainingStock(product.id);
+        {filteredProducts.map((product) => {
           const primaryImage = product.images?.[0] ?? product.image;
           const hoverImage = product.images?.[1] ?? primaryImage;
           return (
-          <article
-            key={`flash-${product.id}`}
-            className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg"
-          >
-            <span className="absolute left-2 top-2 z-10 rounded-full bg-rose-600 px-2 py-0.5 text-[11px] font-bold text-white">
-              -{discount}%
-            </span>
-            <Link href={`/ventes-flash/${product.id}`} className="block">
-              <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#f8f7f5]">
-                <Image
-                  src={primaryImage}
-                  alt={product.name}
-                  width={900}
-                  height={1200}
-                  className="absolute inset-0 h-full w-full object-contain object-center transition duration-300 group-hover:opacity-0"
-                  onError={(event) => {
-                    event.currentTarget.src = FALLBACK_IMAGE;
-                  }}
-                />
-                <Image
-                  src={hoverImage}
-                  alt={`${product.name} - vue secondaire`}
-                  width={900}
-                  height={1200}
-                  className="absolute inset-0 h-full w-full object-contain object-center opacity-0 transition duration-300 group-hover:opacity-100"
-                  onError={(event) => {
-                    event.currentTarget.src = FALLBACK_IMAGE;
-                  }}
-                />
-              </div>
-            </Link>
-            <div className="space-y-2 p-4">
-              <Link
-                href={`/ventes-flash/${product.id}`}
-                className="block truncate whitespace-nowrap text-sm font-semibold text-slate-800 transition hover:text-violet-700"
-              >
-                {shortenLabel(product.name)}
-              </Link>
-              {product.subcategory ? (
-                <p className="text-[11px] text-slate-500">{product.subcategory}</p>
-              ) : null}
-              {hasSizes ? (
-                <select
-                  value={selectedSize}
-                  onChange={(event) =>
-                    setSelectedSizes((previous) => ({
-                      ...previous,
-                      [product.id]: event.target.value,
-                    }))
-                  }
-                  aria-label={`Choisir une taille pour ${product.name}`}
-                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-                >
-                  <option value="">Choisir la taille</option>
-                  {product.sizes?.map((size) => (
-                    <option key={`flash-size-${product.id}-${size}`} value={size}>
-                      {size} — {currency.format(getProductPriceForSize(product, size))}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-              <div className="flex items-center justify-between pt-1">
-                <div className="flex flex-col">
-                  <strong className="text-sm text-violet-700">{currency.format(currentPrice)}</strong>
-                  <span className="text-xs text-slate-400 line-through">
-                    {currency.format(oldPrice)}
-                  </span>
+            <article
+              key={`flash-${product.id}`}
+              className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg"
+            >
+              <Link href={`/ventes-flash/${product.id}`} className="block">
+                <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#f8f7f5]">
+                  <Image
+                    src={primaryImage}
+                    alt={product.name}
+                    width={900}
+                    height={1200}
+                    className="absolute inset-0 h-full w-full object-contain object-center transition duration-300 group-hover:opacity-0"
+                    onError={(event) => {
+                      event.currentTarget.src = FALLBACK_IMAGE;
+                    }}
+                  />
+                  <Image
+                    src={hoverImage}
+                    alt={`${product.name} - vue secondaire`}
+                    width={900}
+                    height={1200}
+                    className="absolute inset-0 h-full w-full object-contain object-center opacity-0 transition duration-300 group-hover:opacity-100"
+                    onError={(event) => {
+                      event.currentTarget.src = FALLBACK_IMAGE;
+                    }}
+                  />
                 </div>
+              </Link>
+              <div className="space-y-2 p-4">
                 <Link
                   href={`/ventes-flash/${product.id}`}
-                  className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-violet-700"
+                  className="block truncate whitespace-nowrap text-sm font-semibold text-slate-800 transition hover:text-violet-700"
                 >
-                  Voir details
+                  {shortenLabel(product.name)}
                 </Link>
+                {product.subcategory ? (
+                  <p className="text-[11px] text-slate-500">{product.subcategory}</p>
+                ) : null}
+                <ProductSizeControls
+                  product={product}
+                  added={lastAddedProductId === product.id}
+                  onAddToCart={(selectedSize) => addToCart(product, selectedSize)}
+                />
               </div>
-              <div className="space-y-1 pt-1">
-                <p className="text-[11px] font-medium text-rose-600">{remaining} articles restants</p>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-                  <div className={`h-full rounded-full bg-rose-500 ${getStockWidthClass(remaining)}`} />
-                </div>
-              </div>
-            </div>
-          </article>
+            </article>
           );
         })}
       </section>

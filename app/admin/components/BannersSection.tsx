@@ -3,7 +3,7 @@ import { SectionPanel } from "./DashboardHeader";
 import { EmptyState, MiniStat } from "./AdminUi";
 
 const POSITION_LABELS: Record<DashboardBanner["position"], string> = {
-  hero: "Bannière principale",
+  hero: "Carrousel principal",
   middle: "Milieu de page",
   sidebar: "Barre latérale",
 };
@@ -27,8 +27,8 @@ export default function BannersSection({
 
   return (
     <SectionPanel
-      title="Bannières"
-      subtitle="Visuels promotionnels affichés sur la boutique"
+      title="Bannières / Carrousel"
+      subtitle="Images du carrousel d'accueil — ajoutez des visuels depuis votre PC"
       action={
         <button type="button" onClick={onCreate} className="admin-btn-primary text-sm">
           + Nouvelle bannière

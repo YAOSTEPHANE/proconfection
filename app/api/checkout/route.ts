@@ -110,7 +110,7 @@ export async function POST(request: Request) {
       }
       return {
         id: product.id,
-        name: item.selectedSize ? `${product.name} - Taille ${item.selectedSize}` : product.name,
+        name: item.selectedSize ? `${product.name} — ${item.selectedSize}` : product.name,
         selectedSize: item.selectedSize,
         quantity: item.quantity,
         unitPrice: getProductPriceForSize(product, item.selectedSize),

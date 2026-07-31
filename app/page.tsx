@@ -4,14 +4,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import CategoryHoverMenu from "@/app/components/CategoryHoverMenu";
+import ProductSizeControls from "@/app/components/ProductSizeControls";
 import {
   categories,
   categoryImageMap,
   categorySubcategoriesMap,
   categoryToSlug,
-  defaultProducts,
   getProductPriceForSize,
-  getRemainingStock,
+  needsComboSizeSelection,
   type Product,
 } from "@/lib/catalog";
 import type { DashboardBanner, DashboardCategory } from "@/lib/dashboard-content";
@@ -26,38 +26,6 @@ const currency = new Intl.NumberFormat("fr-FR", {
 });
 const FALLBACK_IMAGE = "/logo-proconfection.png";
 
-function getStockWidthClass(stock: number): string {
-  if (stock <= 4) return "w-1/5";
-  if (stock <= 8) return "w-2/5";
-  if (stock <= 12) return "w-3/5";
-  if (stock <= 16) return "w-4/5";
-  return "w-full";
-}
-
-function getDisplayDiscount(product: Product, fallbackDiscount: number): number {
-  if (typeof product.discountPercentage === "number" && product.discountPercentage > 0) {
-    return product.discountPercentage;
-  }
-  if (
-    typeof product.oldPrice === "number" &&
-    product.oldPrice > product.price &&
-    product.price > 0
-  ) {
-    return Math.max(1, Math.round((1 - product.price / product.oldPrice) * 100));
-  }
-  return fallbackDiscount;
-}
-
-function getDisplayOldPrice(product: Product, discount: number): number {
-  if (typeof product.oldPrice === "number" && product.oldPrice > product.price) {
-    return product.oldPrice;
-  }
-  if (discount > 0 && discount < 100) {
-    return Math.round(product.price / (1 - discount / 100));
-  }
-  return Math.round(product.price * 1.2);
-}
-
 function shortenLabel(label: string, maxLength = 26): string {
   return label.length > maxLength ? `${label.slice(0, maxLength - 1)}…` : label;
 }
@@ -68,11 +36,17 @@ function normalizeCategoryKey(value: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, " ");
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function productMatchesCategory(productCategory: string, categoryName: string): boolean {
-  return normalizeCategoryKey(productCategory) === normalizeCategoryKey(categoryName);
+  const productKey = normalizeCategoryKey(productCategory);
+  const categoryKey = normalizeCategoryKey(categoryName);
+  if (productKey === categoryKey) {
+    return true;
+  }
+  return normalizeCategoryKey(categoryToSlug(productCategory)) === categoryKey;
 }
 
 export default function Home() {
@@ -99,12 +73,12 @@ export default function Home() {
   const [loadingCheckout, setLoadingCheckout] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
-  const [products, setProducts] = useState<Product[]>(defaultProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [bannerIndex, setBannerIndex] = useState(0);
   const [midBannerIndex, setMidBannerIndex] = useState(0);
   const [lastAddedProductId, setLastAddedProductId] = useState<string | null>(null);
-  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
   const [dynamicCategories, setDynamicCategories] = useState<DashboardCategory[]>([]);
   const [dynamicBanners, setDynamicBanners] = useState<DashboardBanner[]>([]);
   const [showAllSubcategories, setShowAllSubcategories] = useState(false);
@@ -144,7 +118,7 @@ export default function Home() {
 
   const bannerSlides = useMemo(() => {
     const heroBanners = dynamicBanners.filter(
-      (banner) => banner.isActive && banner.position === "hero",
+      (banner) => banner.isActive && banner.position === "hero" && Boolean(banner.image?.trim()),
     );
     if (heroBanners.length === 0) {
       return fallbackBannerSlides;
@@ -159,7 +133,18 @@ export default function Home() {
     }));
   }, [dynamicBanners, fallbackBannerSlides]);
 
+  const activeBanner = bannerSlides[bannerIndex] ?? bannerSlides[0] ?? fallbackBannerSlides[0];
+
   useEffect(() => {
+    setBannerIndex((previous) =>
+      bannerSlides.length === 0 ? 0 : Math.min(previous, bannerSlides.length - 1),
+    );
+  }, [bannerSlides.length]);
+
+  useEffect(() => {
+    if (bannerSlides.length <= 1) {
+      return;
+    }
     const timer = window.setInterval(() => {
       setBannerIndex((previous) => (previous + 1) % bannerSlides.length);
     }, 5000);
@@ -185,7 +170,7 @@ export default function Home() {
   );
   const sideBanners = useMemo(() => {
     const sidebarBanners = dynamicBanners
-      .filter((banner) => banner.isActive && banner.position === "sidebar")
+      .filter((banner) => banner.isActive && banner.position === "sidebar" && Boolean(banner.image?.trim()))
       .slice(0, 2)
       .map((banner) => ({
         title: banner.title,
@@ -231,7 +216,7 @@ export default function Home() {
   );
   const midPromoBanners = useMemo(() => {
     const middleBanners = dynamicBanners
-      .filter((banner) => banner.isActive && banner.position === "middle")
+      .filter((banner) => banner.isActive && banner.position === "middle" && Boolean(banner.image?.trim()))
       .map((banner) => ({
         title: banner.title,
         subtitle: banner.subtitle || "Offre du moment",
@@ -241,12 +226,18 @@ export default function Home() {
   }, [dynamicBanners, fallbackMidPromoBanners]);
 
   const visibleMidPromoBanners = useMemo(() => {
+    if (midPromoBanners.length === 0) {
+      return fallbackMidPromoBanners.slice(0, 3);
+    }
     return Array.from({ length: 3 }, (_, offset) => {
-      return midPromoBanners[(midBannerIndex + offset) % midPromoBanners.length];
+      return midPromoBanners[(midBannerIndex + offset) % midPromoBanners.length]!;
     });
-  }, [midBannerIndex, midPromoBanners]);
+  }, [fallbackMidPromoBanners, midBannerIndex, midPromoBanners]);
 
   useEffect(() => {
+    if (midPromoBanners.length <= 1) {
+      return;
+    }
     const timer = window.setInterval(() => {
       setMidBannerIndex((previous) => (previous + 1) % midPromoBanners.length);
     }, 3500);
@@ -254,20 +245,31 @@ export default function Home() {
   }, [midPromoBanners.length]);
 
   useEffect(() => {
+    setMidBannerIndex((previous) =>
+      midPromoBanners.length === 0 ? 0 : Math.min(previous, midPromoBanners.length - 1),
+    );
+  }, [midPromoBanners.length]);
+
+  useEffect(() => {
     let active = true;
 
     async function loadHomepageContent() {
+      setProductsLoading(true);
       try {
         const productsResponse = await fetch("/api/products", { cache: "no-store" });
         const productsData = (await productsResponse.json()) as Product[] | { error?: string };
         if (productsResponse.ok && Array.isArray(productsData) && active) {
           setProducts(productsData);
         } else if (active) {
-          setProducts(defaultProducts);
+          setProducts([]);
         }
       } catch {
         if (active) {
-          setProducts(defaultProducts);
+          setProducts([]);
+        }
+      } finally {
+        if (active) {
+          setProductsLoading(false);
         }
       }
 
@@ -402,7 +404,7 @@ export default function Home() {
   function addToCart(product: Product, selectedSize?: string) {
     const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
     const normalizedSize = selectedSize?.trim();
-    if (hasSizes && !normalizedSize) {
+    if ((hasSizes || needsComboSizeSelection(product)) && !normalizedSize) {
       return;
     }
     setCheckoutDone(null);
@@ -494,26 +496,27 @@ export default function Home() {
 
           <div className="relative h-80 w-full overflow-hidden rounded-2xl p-5 text-white shadow-lg sm:h-96 sm:p-6 xl:max-w-[760px]">
             <Image
-              src={bannerSlides[bannerIndex].image}
-              alt={bannerSlides[bannerIndex].title}
+              src={activeBanner.image}
+              alt={activeBanner.title}
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, 900px"
               priority
+              unoptimized={activeBanner.image.startsWith("data:")}
             />
             <div className="absolute inset-0 bg-linear-to-r from-slate-950/75 via-indigo-950/65 to-violet-900/65" />
             <div className="relative h-full">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-                {bannerSlides[bannerIndex]?.tag}
+                {activeBanner.tag}
               </p>
               <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <h2 className="text-2xl font-extrabold">{bannerSlides[bannerIndex]?.title}</h2>
+                  <h2 className="text-2xl font-extrabold">{activeBanner.title}</h2>
                   <p className="mt-1 text-base text-white/90">
-                    {bannerSlides[bannerIndex]?.description}
+                    {activeBanner.description}
                   </p>
                   <p className="mt-2 inline-flex rounded-full bg-white/20 px-4 py-1.5 text-sm font-bold text-white">
-                    {bannerSlides[bannerIndex]?.price}
+                    {activeBanner.price}
                   </p>
                 </div>
                 <button
@@ -521,7 +524,7 @@ export default function Home() {
                   onClick={() => setSelectedCategory("Tous")}
                   className="cursor-pointer rounded-full bg-white px-4 py-2 text-sm font-semibold text-indigo-700"
                 >
-                  {bannerSlides[bannerIndex]?.cta}
+                  {activeBanner.cta}
                 </button>
               </div>
               <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center justify-center gap-2">
@@ -543,38 +546,30 @@ export default function Home() {
           </div>
 
           <div className="hidden shrink-0 gap-4 lg:flex lg:w-72 lg:flex-col">
-            <div className="relative h-44 w-full overflow-hidden rounded-2xl shadow-lg">
-              <Image
-                src={sideBanners[0].image}
-                alt={sideBanners[0].title}
-                fill
-                className="object-cover"
-                sizes="256px"
-              />
-              <div className="absolute inset-0 bg-black/35" />
-              <p className="absolute bottom-2 left-2 right-2 line-clamp-2 text-sm font-bold text-white">
-                {sideBanners[0].title}
-              </p>
-              <p className="absolute left-2 top-2 rounded-full bg-white/85 px-2.5 py-1 text-xs font-bold text-slate-800">
-                {sideBanners[0].price}
-              </p>
-            </div>
-            <div className="relative h-44 w-full overflow-hidden rounded-2xl shadow-xl">
-              <Image
-                src={sideBanners[1].image}
-                alt={sideBanners[1].title}
-                fill
-                className="object-cover"
-                sizes="256px"
-              />
-              <div className="absolute inset-0 bg-black/35" />
-              <p className="absolute bottom-2 left-2 right-2 line-clamp-2 text-sm font-bold text-white">
-                {sideBanners[1].title}
-              </p>
-              <p className="absolute left-2 top-2 rounded-full bg-white/85 px-2.5 py-1 text-xs font-bold text-slate-800">
-                {sideBanners[1].price}
-              </p>
-            </div>
+            {(sideBanners[0] ? [sideBanners[0], sideBanners[1] ?? fallbackSideBanners[1]] : fallbackSideBanners).map(
+              (banner, index) => (
+                <div
+                  key={`side-banner-${banner.title}-${index}`}
+                  className="relative h-44 w-full overflow-hidden rounded-2xl shadow-lg"
+                >
+                  <Image
+                    src={banner.image}
+                    alt={banner.title}
+                    fill
+                    className="object-cover"
+                    sizes="256px"
+                    unoptimized={banner.image.startsWith("data:")}
+                  />
+                  <div className="absolute inset-0 bg-black/35" />
+                  <p className="absolute bottom-2 left-2 right-2 line-clamp-2 text-sm font-bold text-white">
+                    {banner.title}
+                  </p>
+                  <p className="absolute left-2 top-2 rounded-full bg-white/85 px-2.5 py-1 text-xs font-bold text-slate-800">
+                    {banner.price}
+                  </p>
+                </div>
+              ),
+            )}
           </div>
         </div>
 
@@ -642,24 +637,19 @@ export default function Home() {
             </Link>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-            {flashProducts.map((product, index) => {
-              const selectedSize = selectedSizes[product.id] ?? "";
-              const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
-              const remaining =
-                typeof product.stock === "number" ? product.stock : getRemainingStock(product.id);
+            {productsLoading ? (
+              <p className="col-span-full text-sm text-slate-500">Chargement des produits...</p>
+            ) : flashProducts.length === 0 ? (
+              <p className="col-span-full text-sm text-slate-500">Aucun produit pour le moment.</p>
+            ) : (
+            flashProducts.map((product) => {
               const primaryImage = product.images?.[0] ?? product.image;
               const hoverImage = product.images?.[1] ?? primaryImage;
-              const discount = getDisplayDiscount(product, 10 + (index + 1) * 5);
-              const currentPrice = getProductPriceForSize(product, selectedSize || undefined);
-              const oldPrice = Math.round(currentPrice / (1 - discount / 100));
               return (
               <article
                 key={`new-product-${product.id}`}
                 className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg"
               >
-                <span className="absolute left-2 top-2 z-10 rounded-full bg-rose-600 px-2 py-0.5 text-[11px] font-bold text-white">
-                  -{discount}%
-                </span>
                 <Link href={`/ventes-flash/${product.id}`} className="block">
                   <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#f8f7f5]">
                     <Image
@@ -694,60 +684,16 @@ export default function Home() {
                   {product.subcategory ? (
                     <p className="text-[11px] text-slate-500">{product.subcategory}</p>
                   ) : null}
-                  {hasSizes ? (
-                    <select
-                      value={selectedSize}
-                      onChange={(event) =>
-                        setSelectedSizes((previous) => ({
-                          ...previous,
-                          [product.id]: event.target.value,
-                        }))
-                      }
-                      aria-label={`Choisir une taille pour ${product.name}`}
-                      className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-                    >
-                      <option value="">Choisir la taille</option>
-                      {product.sizes?.map((size) => (
-                        <option key={`home-size-${product.id}-${size}`} value={size}>
-                          {size} — {currency.format(getProductPriceForSize(product, size))}
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-col">
-                      <strong className="text-sm text-violet-700">
-                        {currency.format(currentPrice)}
-                      </strong>
-                      <span className="text-xs text-slate-400 line-through">
-                        {currency.format(oldPrice)}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => addToCart(product, selectedSize)}
-                      disabled={hasSizes && selectedSize.trim().length === 0}
-                      className={`cursor-pointer rounded-full px-3 py-1 text-xs font-semibold text-white transition ${
-                        lastAddedProductId === product.id
-                          ? "bg-emerald-600 hover:bg-emerald-700"
-                          : "bg-slate-900 hover:bg-violet-700"
-                      } disabled:cursor-not-allowed disabled:opacity-60`}
-                    >
-                      {lastAddedProductId === product.id ? "Ajoute" : "Ajouter"}
-                    </button>
-                  </div>
-                  <div className="space-y-1 pt-1">
-                    <p className="text-[11px] font-medium text-rose-600">
-                      {remaining} articles restants
-                    </p>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-                      <div className={`h-full rounded-full bg-rose-500 ${getStockWidthClass(remaining)}`} />
-                    </div>
-                  </div>
+                  <ProductSizeControls
+                    product={product}
+                    added={lastAddedProductId === product.id}
+                    onAddToCart={(selectedSize) => addToCart(product, selectedSize)}
+                  />
                 </div>
               </article>
-            );
-            })}
+              );
+            })
+            )}
           </div>
         </div>
 
@@ -776,19 +722,11 @@ export default function Home() {
                 ) : (
                   <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
                     {group.items.map((product) => {
-                      const selectedSize = selectedSizes[product.id] ?? "";
-                      const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
-                      const discount = getDisplayDiscount(product, 20);
-                      const currentPrice = getProductPriceForSize(product, selectedSize || undefined);
-                      const oldPrice = Math.round(currentPrice / (1 - discount / 100));
                       return (
                       <article
                         key={`group-item-${group.category}-${product.id}`}
                         className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg"
                       >
-                        <span className="absolute left-2 top-2 z-10 rounded-full bg-rose-600 px-2 py-0.5 text-[11px] font-bold text-white">
-                          -{discount}%
-                        </span>
                         <Link href={`/ventes-flash/${product.id}`} className="block">
                         <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#f8f7f5]">
                         <Image
@@ -823,48 +761,11 @@ export default function Home() {
                           {product.subcategory ? (
                             <p className="text-[11px] text-slate-500">{product.subcategory}</p>
                           ) : null}
-                          {hasSizes ? (
-                            <select
-                              value={selectedSize}
-                              onChange={(event) =>
-                                setSelectedSizes((previous) => ({
-                                  ...previous,
-                                  [product.id]: event.target.value,
-                                }))
-                              }
-                              aria-label={`Choisir une taille pour ${product.name}`}
-                              className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-                            >
-                              <option value="">Choisir la taille</option>
-                              {product.sizes?.map((size) => (
-                                <option key={`home-group-size-${product.id}-${size}`} value={size}>
-                                  {size} — {currency.format(getProductPriceForSize(product, size))}
-                                </option>
-                              ))}
-                            </select>
-                          ) : null}
-                          <div className="flex items-center justify-between">
-                            <div className="flex flex-col">
-                              <strong className="text-sm text-violet-700">
-                                {currency.format(currentPrice)}
-                              </strong>
-                              <span className="text-xs text-slate-400 line-through">
-                                {currency.format(oldPrice)}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => addToCart(product, selectedSize)}
-                              disabled={hasSizes && selectedSize.trim().length === 0}
-                              className={`cursor-pointer rounded-full px-3 py-1 text-xs font-semibold text-white transition ${
-                                lastAddedProductId === product.id
-                                  ? "bg-emerald-600 hover:bg-emerald-700"
-                                  : "bg-slate-900 hover:bg-violet-700"
-                              } disabled:cursor-not-allowed disabled:opacity-60`}
-                            >
-                              {lastAddedProductId === product.id ? "Ajoute" : "Ajouter"}
-                            </button>
-                          </div>
+                          <ProductSizeControls
+                            product={product}
+                            added={lastAddedProductId === product.id}
+                            onAddToCart={(selectedSize) => addToCart(product, selectedSize)}
+                          />
                         </div>
                       </article>
                     );
@@ -945,6 +846,7 @@ export default function Home() {
                           fill
                           className="object-cover transition duration-500 group-hover:scale-105"
                           sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                          unoptimized={banner.image.startsWith("data:")}
                         />
                         <div className="absolute inset-0 bg-black/35" />
                         <div className="absolute inset-0 flex flex-col justify-end p-3 text-white">
@@ -1007,7 +909,7 @@ export default function Home() {
                   >
                     <div className="flex items-start gap-3">
                       <Image
-                        src={item.image}
+                        src={item.image || item.images?.[0] || "/logo-proconfection.png"}
                         alt={item.name}
                         width={72}
                         height={72}
@@ -1017,7 +919,7 @@ export default function Home() {
                         <p className="truncate font-medium text-slate-100">{item.name}</p>
                         <p className="text-xs text-slate-400">{item.category}</p>
                         {item.selectedSize ? (
-                          <p className="text-xs text-slate-400">Taille: {item.selectedSize}</p>
+                          <p className="text-xs text-slate-400">{item.selectedSize}</p>
                         ) : null}
                       </div>
                       <span className="text-slate-200">{currency.format(item.price)}</span>

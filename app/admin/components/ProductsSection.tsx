@@ -114,6 +114,13 @@ export default function ProductsSection({
                       <p className="text-xs text-stone-400 line-through">{currency.format(item.oldPrice)}</p>
                     ) : null}
                   </div>
+                  {item.sizes && item.sizes.length > 0 ? (
+                    <p className="text-xs text-stone-500">
+                      Âges / tailles : {item.sizes.join(" · ")}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-700">Aucun âge / taille affiché</p>
+                  )}
                   {Number.isFinite(item.stock) ? (
                     <p className="text-xs text-stone-500">Stock : {item.stock}</p>
                   ) : null}

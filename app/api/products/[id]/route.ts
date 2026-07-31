@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { hasValidAdminSession } from "@/lib/auth";
-import { type Product } from "@/lib/catalog";
+import { parseComboByAge, sizePricesFromComboByAge, type Product } from "@/lib/catalog";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -57,13 +57,30 @@ export async function PUT(request: Request, { params }: Params) {
               .filter(([age, value]) => age.length > 0 && Number.isFinite(value) && value > 0),
           )
         : undefined;
+    const tshirtPrice =
+      Number.isFinite(body.tshirtPrice) && Number(body.tshirtPrice) > 0
+        ? Number(body.tshirtPrice)
+        : undefined;
+    const shortPrice =
+      Number.isFinite(body.shortPrice) && Number(body.shortPrice) > 0
+        ? Number(body.shortPrice)
+        : undefined;
+    const comboByAge = parseComboByAge(body.comboByAge);
+    const comboTotal =
+      tshirtPrice && shortPrice ? Math.round(tshirtPrice + shortPrice) : Number(body.price);
+    const resolvedSizePrices =
+      comboByAge && Object.keys(comboByAge).length > 0
+        ? sizePricesFromComboByAge(comboByAge)
+        : sizePrices && Object.keys(sizePrices).length > 0
+          ? sizePrices
+          : undefined;
 
     const db = await getDb();
     const update: Partial<Product> = {
       name: body.name.trim(),
       category: body.category.trim(),
       subcategory: body.subcategory?.trim() || undefined,
-      price: Number(body.price),
+      price: comboTotal,
       image: body.image.trim(),
       images: images.length > 0 ? images : undefined,
       oldPrice,
@@ -74,15 +91,33 @@ export async function PUT(request: Request, { params }: Params) {
     if (sizes && sizes.length > 0) {
       update.sizes = sizes;
     }
-    if (sizePrices && Object.keys(sizePrices).length > 0) {
-      update.sizePrices = sizePrices;
+    if (resolvedSizePrices) {
+      update.sizePrices = resolvedSizePrices;
+    }
+    if (tshirtPrice) {
+      update.tshirtPrice = tshirtPrice;
+    }
+    if (shortPrice) {
+      update.shortPrice = shortPrice;
+    }
+    if (comboByAge) {
+      update.comboByAge = comboByAge;
     }
     const unsetFields: Record<string, ""> = {};
     if (!sizes || sizes.length === 0) {
       unsetFields.sizes = "";
     }
-    if (!sizePrices || Object.keys(sizePrices).length === 0) {
+    if (!resolvedSizePrices) {
       unsetFields.sizePrices = "";
+    }
+    if (!tshirtPrice) {
+      unsetFields.tshirtPrice = "";
+    }
+    if (!shortPrice) {
+      unsetFields.shortPrice = "";
+    }
+    if (!comboByAge) {
+      unsetFields.comboByAge = "";
     }
     const result = await db.collection<Product>("products").updateOne(
       { id },

@@ -9,14 +9,18 @@ type ProductImageGalleryProps = {
 };
 
 export default function ProductImageGallery({ productName, images }: ProductImageGalleryProps) {
-  const safeImages = useMemo(() => (images.length > 0 ? images : ["/logo-proconfection.png"]), [images]);
+  const safeImages = useMemo(() => {
+    const cleaned = (images ?? []).filter((image) => typeof image === "string" && image.trim().length > 0);
+    return cleaned.length > 0 ? cleaned : ["/logo-proconfection.png"];
+  }, [images]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const activeImage = safeImages[Math.min(activeIndex, safeImages.length - 1)] ?? "/logo-proconfection.png";
 
   return (
     <div className="space-y-3">
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-[#f8f7f5]">
         <Image
-          src={safeImages[activeIndex]}
+          src={activeImage}
           alt={productName}
           width={900}
           height={1200}

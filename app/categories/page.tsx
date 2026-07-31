@@ -7,7 +7,6 @@ import {
   categories,
   categoryImageMap,
   categoryToSlug,
-  defaultProducts,
   type Product,
 } from "@/lib/catalog";
 import type { DashboardCategory } from "@/lib/dashboard-content";
@@ -27,7 +26,7 @@ function productMatchesCategory(productCategory: string, categoryName: string): 
 
 export default function CategoriesPage() {
   const [dynamicCategories, setDynamicCategories] = useState<DashboardCategory[]>([]);
-  const [products, setProducts] = useState<Product[]>(defaultProducts);
+  const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -44,9 +43,13 @@ export default function CategoriesPage() {
         }
         if (active && productsResponse.ok && Array.isArray(productsData)) {
           setProducts(productsData);
+        } else if (active) {
+          setProducts([]);
         }
       } catch {
-        // Keep fallback data on network errors.
+        if (active) {
+          setProducts([]);
+        }
       }
     }
     void loadContent();

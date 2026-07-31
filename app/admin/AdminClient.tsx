@@ -4,12 +4,22 @@ import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
+  CLOTHING_SIZE_OPTIONS,
   DEFAULT_SCHOOL_PRICING_COEFFICIENTS,
+  DEFAULT_SHORT_COMPONENT_PRICE,
+  DEFAULT_TSHIRT_COMPONENT_PRICE,
+  TSHIRT_SIZE_OPTIONS,
+  buildDefaultComboByAge,
   categories,
   categoryImageMap,
   categorySubcategoriesMap,
   categoryToSlug,
-  defaultProducts,
+  getComboTotalPrice,
+  isShortLikeProduct,
+  isTshirtShortCombo,
+  parseComboByAge,
+  sizePricesFromComboByAge,
+  type ComboAgeConfig,
   type SchoolPricingCoefficients,
   type Product,
 } from "@/lib/catalog";
@@ -35,6 +45,13 @@ const currency = new Intl.NumberFormat("fr-FR", {
   maximumFractionDigits: 0,
 });
 
+type ComboAgeFormRow = {
+  tshirtSize: string;
+  shortSize: string;
+  tshirtPrice: string;
+  shortPrice: string;
+};
+
 type ProductForm = {
   id: string;
   name: string;
@@ -46,6 +63,9 @@ type ProductForm = {
   stock: string;
   sizes: string;
   sizePrices: Record<string, string>;
+  tshirtPrice: string;
+  shortPrice: string;
+  comboByAge: Record<string, ComboAgeFormRow>;
   image: string;
   images: string[];
   description: string;
@@ -135,13 +155,66 @@ type DashboardSection =
   | "settings";
 type ProductMenuTarget = "dashboard-products-form" | "dashboard-products-search" | "dashboard-products-list";
 
+const AGE_OPTIONS = [
+  "3 ans",
+  "4 ans",
+  "5 ans",
+  "6 ans",
+  "7 ans",
+  "8 ans",
+  "9 ans",
+  "10 ans",
+  "11 ans",
+  "12 ans",
+  "13 ans",
+  "14 ans",
+  "15 ans",
+  "16 ans",
+] as const;
+
+/** Tailles shorts (1 à 6) et T-shirt (4 ans–XXL) */
+const SIZE_OPTIONS = CLOTHING_SIZE_OPTIONS;
+const LETTER_SIZE_OPTIONS = TSHIRT_SIZE_OPTIONS;
+
+const SIZE_RANK: Record<string, number> = {
+  "1": 1,
+  "2": 2,
+  "3": 3,
+  "4": 4,
+  "5": 5,
+  "6": 6,
+  "4 ans": 7,
+  "6 ans": 8,
+  "8 ans": 9,
+  "10 ans": 10,
+  "12 ans": 11,
+  "14 ans": 12,
+  "16 ans": 13,
+  S: 14,
+  M: 15,
+  L: 16,
+  XL: 17,
+  XXL: 18,
+};
+
 const AGE_PRESETS = [
   ["3 ans", "4 ans", "5 ans", "6 ans"],
   ["5 ans", "6 ans", "7 ans", "8 ans"],
   ["6 ans", "8 ans", "10 ans", "12 ans"],
   ["8 ans", "10 ans", "12 ans", "14 ans"],
   ["10 ans", "12 ans", "14 ans", "16 ans"],
+  ["4 ans", "6 ans", "8 ans", "10 ans", "12 ans", "14 ans", "16 ans", "S", "M", "L", "XL", "XXL"],
+  ["1", "2", "3", "4", "5", "6"],
 ] as const;
+
+function parseAgeNumber(age: string): number | null {
+  const match = age.match(/\d+(?:[.,]\d+)?/);
+  if (!match) {
+    return null;
+  }
+  const parsed = Number(match[0].replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 function parseAgesInput(value: string): string[] {
   return [
@@ -154,17 +227,39 @@ function parseAgesInput(value: string): string[] {
   ];
 }
 
-function formatAgesInput(sizes: string[] | undefined): string {
-  return (sizes ?? []).join(", ");
+function sortAges(ages: string[]): string[] {
+  return [...ages].sort((left, right) => {
+    const leftAge = parseAgeNumber(left);
+    const rightAge = parseAgeNumber(right);
+    const leftIsAge = left.includes("ans") && leftAge !== null;
+    const rightIsAge = right.includes("ans") && rightAge !== null;
+    const leftSizeRank = SIZE_RANK[left] ?? SIZE_RANK[left.toUpperCase()];
+    const rightSizeRank = SIZE_RANK[right] ?? SIZE_RANK[right.toUpperCase()];
+
+    if (leftIsAge && rightIsAge && leftAge !== rightAge) {
+      return leftAge! - rightAge!;
+    }
+    if (leftIsAge && !rightIsAge) {
+      return -1;
+    }
+    if (!leftIsAge && rightIsAge) {
+      return 1;
+    }
+    if (leftSizeRank !== undefined && rightSizeRank !== undefined) {
+      return leftSizeRank - rightSizeRank;
+    }
+    if (leftSizeRank !== undefined) {
+      return -1;
+    }
+    if (rightSizeRank !== undefined) {
+      return 1;
+    }
+    return left.localeCompare(right, "fr");
+  });
 }
 
-function parseAgeNumber(age: string): number | null {
-  const match = age.match(/\d+(?:[.,]\d+)?/);
-  if (!match) {
-    return null;
-  }
-  const parsed = Number(match[0].replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : null;
+function formatAgesInput(sizes: string[] | undefined): string {
+  return sortAges(sizes ?? []).join(", ");
 }
 
 function buildSizePrices(
@@ -173,25 +268,14 @@ function buildSizePrices(
   previous: Record<string, string> = {},
   forceRecalculate = false,
 ): Record<string, string> {
-  const numericAges = ages
-    .map((age) => ({ age, value: parseAgeNumber(age) }))
-    .filter((entry): entry is { age: string; value: number } => entry.value !== null);
-  const minAge =
-    numericAges.length > 0 ? Math.min(...numericAges.map((entry) => entry.value)) : null;
-
   const next: Record<string, string> = {};
-  ages.forEach((age, index) => {
+  ages.forEach((age) => {
     if (!forceRecalculate && previous[age]?.trim()) {
       next[age] = previous[age];
       return;
     }
-    const ageNumber = parseAgeNumber(age);
-    if (ageNumber !== null && minAge !== null && Number.isFinite(basePrice) && basePrice > 0) {
-      next[age] = String(Math.round(basePrice + (ageNumber - minAge) * 500));
-      return;
-    }
     if (Number.isFinite(basePrice) && basePrice > 0) {
-      next[age] = String(Math.round(basePrice + index * 1000));
+      next[age] = String(Math.round(basePrice));
       return;
     }
     next[age] = previous[age] ?? "";
@@ -209,6 +293,73 @@ function serializeSizePrices(sizePrices: Record<string, string>): Record<string,
   return Object.fromEntries(entries);
 }
 
+function buildFormComboByAge(
+  ages: string[],
+  tshirtPrice: number,
+  shortPrice: number,
+  previous: Record<string, ComboAgeFormRow> = {},
+  forcePrices = false,
+): Record<string, ComboAgeFormRow> {
+  const defaults = buildDefaultComboByAge(ages, tshirtPrice, shortPrice);
+  const next: Record<string, ComboAgeFormRow> = {};
+  ages.forEach((age) => {
+    const existing = previous[age];
+    const fallback = defaults[age]!;
+    next[age] = {
+      tshirtSize: existing?.tshirtSize?.trim() || fallback.tshirtSize,
+      shortSize: existing?.shortSize?.trim() || fallback.shortSize,
+      tshirtPrice:
+        !forcePrices && existing?.tshirtPrice?.trim()
+          ? existing.tshirtPrice
+          : String(fallback.tshirtPrice),
+      shortPrice:
+        !forcePrices && existing?.shortPrice?.trim()
+          ? existing.shortPrice
+          : String(fallback.shortPrice),
+    };
+  });
+  return next;
+}
+
+function productComboToForm(
+  product: Product,
+  ages: string[],
+  tshirtFallback: number,
+  shortFallback: number,
+): Record<string, ComboAgeFormRow> {
+  const built = buildDefaultComboByAge(
+    ages,
+    tshirtFallback,
+    shortFallback,
+    product.comboByAge ?? {},
+  );
+  return Object.fromEntries(
+    Object.entries(built).map(([age, row]) => [
+      age,
+      {
+        tshirtSize: row.tshirtSize,
+        shortSize: row.shortSize,
+        tshirtPrice: String(row.tshirtPrice),
+        shortPrice: String(row.shortPrice),
+      },
+    ]),
+  );
+}
+
+function serializeFormComboByAge(
+  comboByAge: Record<string, ComboAgeFormRow>,
+  ages: string[],
+): Record<string, ComboAgeConfig> | undefined {
+  const filtered: Record<string, ComboAgeFormRow> = {};
+  ages.forEach((age) => {
+    const row = comboByAge[age];
+    if (row) {
+      filtered[age] = row;
+    }
+  });
+  return parseComboByAge(filtered);
+}
+
 const initialForm: ProductForm = {
   id: "",
   name: "",
@@ -220,6 +371,9 @@ const initialForm: ProductForm = {
   stock: "",
   sizes: "",
   sizePrices: {},
+  tshirtPrice: "",
+  shortPrice: "",
+  comboByAge: {},
   image: "",
   images: [],
   description: "",
@@ -252,7 +406,7 @@ const initialBannerForm: BannerForm = {
 
 export default function AdminClient() {
   const router = useRouter();
-  const [items, setItems] = useState<Product[]>(defaultProducts);
+  const [items, setItems] = useState<Product[]>([]);
   const [form, setForm] = useState<ProductForm>(initialForm);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -501,7 +655,7 @@ export default function AdminClient() {
         }
       } catch (loadError) {
         if (active) {
-          setItems(defaultProducts);
+          setItems([]);
           setError(
             loadError instanceof Error ? loadError.message : "Erreur de chargement.",
           );
@@ -532,11 +686,8 @@ export default function AdminClient() {
         const missingCatalogCategories = categories.filter(
           (name) => !data.some((category) => category.name === name),
         );
-        const obsoleteCategories = data.filter(
-          (category) => !categories.includes(category.name),
-        );
 
-        if (missingCatalogCategories.length > 0 || obsoleteCategories.length > 0) {
+        if (missingCatalogCategories.length > 0) {
           await Promise.all(
             missingCatalogCategories.map((name) =>
               fetch("/api/categories", {
@@ -549,11 +700,6 @@ export default function AdminClient() {
                   isActive: true,
                 }),
               }),
-            ),
-          );
-          await Promise.all(
-            obsoleteCategories.map((category) =>
-              fetch(`/api/categories/${category.id}`, { method: "DELETE" }),
             ),
           );
           const refreshedResponse = await fetch("/api/categories");
@@ -703,7 +849,21 @@ export default function AdminClient() {
 
   async function submitForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const price = Number(form.newPrice);
+    const tshirtPriceValue = Number(form.tshirtPrice);
+    const shortPriceValue = Number(form.shortPrice);
+    const hasComboParts =
+      Number.isFinite(tshirtPriceValue) &&
+      tshirtPriceValue > 0 &&
+      Number.isFinite(shortPriceValue) &&
+      shortPriceValue > 0;
+    const ages = parseAgesInput(form.sizes);
+    const comboByAge = hasComboParts
+      ? serializeFormComboByAge(form.comboByAge, ages) ??
+        buildDefaultComboByAge(ages, tshirtPriceValue, shortPriceValue)
+      : undefined;
+    const price = hasComboParts
+      ? getComboTotalPrice(tshirtPriceValue, shortPriceValue)
+      : Number(form.newPrice);
     const oldPrice = Number(form.oldPrice);
     const reduction = Number(form.reduction);
     const stock = Number(form.stock);
@@ -720,13 +880,16 @@ export default function AdminClient() {
     if (!form.name || !Number.isFinite(price) || price <= 0 || !mainImage) {
       return;
     }
+    if (availableProductSubcategories.length > 0 && !form.subcategory.trim()) {
+      setError("Choisissez une sous-categorie pour classer la tenue correctement.");
+      return;
+    }
 
-    const ages = parseAgesInput(form.sizes);
-    const sizePrices = serializeSizePrices(
-      ages.length > 0
-        ? buildSizePrices(ages, price, form.sizePrices)
-        : {},
-    );
+    const sizePrices = comboByAge
+      ? sizePricesFromComboByAge(comboByAge)
+      : serializeSizePrices(
+          ages.length > 0 ? buildSizePrices(ages, price, form.sizePrices) : {},
+        );
     const id = editingId ?? `p-${crypto.randomUUID().slice(0, 8)}`;
     const product: Product = {
       id,
@@ -742,6 +905,9 @@ export default function AdminClient() {
       description: form.description || "Description indisponible.",
       sizes: ages.length > 0 ? ages : undefined,
       sizePrices,
+      tshirtPrice: hasComboParts ? tshirtPriceValue : undefined,
+      shortPrice: hasComboParts ? shortPriceValue : undefined,
+      comboByAge: comboByAge && Object.keys(comboByAge).length > 0 ? comboByAge : undefined,
     };
 
     try {
@@ -787,17 +953,41 @@ export default function AdminClient() {
     const existingPrices = Object.fromEntries(
       Object.entries(product.sizePrices ?? {}).map(([age, value]) => [age, String(value)]),
     );
+    const tshirtPrice =
+      product.tshirtPrice && product.tshirtPrice > 0
+        ? String(product.tshirtPrice)
+        : isTshirtShortCombo(product.name, product.description)
+          ? String(DEFAULT_TSHIRT_COMPONENT_PRICE)
+          : "";
+    const shortPrice =
+      product.shortPrice && product.shortPrice > 0
+        ? String(product.shortPrice)
+        : isTshirtShortCombo(product.name, product.description)
+          ? String(DEFAULT_SHORT_COMPONENT_PRICE)
+          : "";
+    const comboTotal =
+      tshirtPrice && shortPrice
+        ? getComboTotalPrice(Number(tshirtPrice), Number(shortPrice))
+        : product.price;
+    const tshirtNum = Number(tshirtPrice) || DEFAULT_TSHIRT_COMPONENT_PRICE;
+    const shortNum = Number(shortPrice) || DEFAULT_SHORT_COMPONENT_PRICE;
     setForm({
       id: product.id,
       name: product.name,
       category: product.category,
       subcategory: product.subcategory ?? "",
       oldPrice: product.oldPrice ? String(product.oldPrice) : "",
-      newPrice: String(product.price),
+      newPrice: String(comboTotal),
       reduction: product.discountPercentage ? String(product.discountPercentage) : "",
       stock: Number.isFinite(product.stock) ? String(product.stock) : "",
       sizes: formatAgesInput(ages),
-      sizePrices: buildSizePrices(ages, product.price, existingPrices),
+      sizePrices: buildSizePrices(ages, comboTotal, existingPrices),
+      tshirtPrice,
+      shortPrice,
+      comboByAge:
+        tshirtPrice && shortPrice
+          ? productComboToForm(product, ages, tshirtNum, shortNum)
+          : {},
       image: product.image,
       images: (product.images ?? []).filter((image) => image !== product.image),
       description: product.description,
@@ -825,17 +1015,41 @@ export default function AdminClient() {
     const existingPrices = Object.fromEntries(
       Object.entries(product.sizePrices ?? {}).map(([age, value]) => [age, String(value)]),
     );
+    const tshirtPrice =
+      product.tshirtPrice && product.tshirtPrice > 0
+        ? String(product.tshirtPrice)
+        : isTshirtShortCombo(product.name, product.description)
+          ? String(DEFAULT_TSHIRT_COMPONENT_PRICE)
+          : "";
+    const shortPrice =
+      product.shortPrice && product.shortPrice > 0
+        ? String(product.shortPrice)
+        : isTshirtShortCombo(product.name, product.description)
+          ? String(DEFAULT_SHORT_COMPONENT_PRICE)
+          : "";
+    const comboTotal =
+      tshirtPrice && shortPrice
+        ? getComboTotalPrice(Number(tshirtPrice), Number(shortPrice))
+        : product.price;
+    const tshirtNum = Number(tshirtPrice) || DEFAULT_TSHIRT_COMPONENT_PRICE;
+    const shortNum = Number(shortPrice) || DEFAULT_SHORT_COMPONENT_PRICE;
     setForm({
       id: "",
       name: `${product.name} (copie)`,
       category: product.category,
       subcategory: product.subcategory ?? "",
       oldPrice: product.oldPrice ? String(product.oldPrice) : "",
-      newPrice: String(product.price),
+      newPrice: String(comboTotal),
       reduction: product.discountPercentage ? String(product.discountPercentage) : "",
       stock: Number.isFinite(product.stock) ? String(product.stock) : "",
       sizes: formatAgesInput(ages),
-      sizePrices: buildSizePrices(ages, product.price, existingPrices),
+      sizePrices: buildSizePrices(ages, comboTotal, existingPrices),
+      tshirtPrice,
+      shortPrice,
+      comboByAge:
+        tshirtPrice && shortPrice
+          ? productComboToForm(product, ages, tshirtNum, shortNum)
+          : {},
       image: product.image,
       images: (product.images ?? []).filter((image) => image !== product.image),
       description: product.description,
@@ -843,22 +1057,143 @@ export default function AdminClient() {
     goToProductTarget("dashboard-products-form");
   }
 
+  function updateComboComponentPrice(field: "tshirtPrice" | "shortPrice", value: string) {
+    setForm((previous) => {
+      const next = { ...previous, [field]: value };
+      const tshirt = Number(field === "tshirtPrice" ? value : previous.tshirtPrice);
+      const short = Number(field === "shortPrice" ? value : previous.shortPrice);
+      if (Number.isFinite(tshirt) && tshirt > 0 && Number.isFinite(short) && short > 0) {
+        const total = getComboTotalPrice(tshirt, short);
+        const ages = parseAgesInput(previous.sizes);
+        next.newPrice = String(total);
+        next.sizePrices = buildSizePrices(ages, total, previous.sizePrices, true);
+        next.comboByAge = buildFormComboByAge(ages, tshirt, short, previous.comboByAge, true);
+      }
+      return next;
+    });
+  }
+
   function updateAges(nextSizes: string) {
-    const ages = parseAgesInput(nextSizes);
+    const ages = sortAges(parseAgesInput(nextSizes));
     const basePrice = Number(form.newPrice);
+    const tshirt = Number(form.tshirtPrice);
+    const short = Number(form.shortPrice);
+    const hasCombo =
+      Number.isFinite(tshirt) && tshirt > 0 && Number.isFinite(short) && short > 0;
     setForm((previous) => ({
       ...previous,
-      sizes: nextSizes,
+      sizes: ages.join(", "),
       sizePrices: buildSizePrices(ages, basePrice, previous.sizePrices),
+      comboByAge: hasCombo
+        ? buildFormComboByAge(ages, tshirt, short, previous.comboByAge)
+        : previous.comboByAge,
     }));
   }
 
+  function updateComboAgeField(
+    age: string,
+    field: keyof ComboAgeFormRow,
+    value: string,
+  ) {
+    setForm((previous) => {
+      const current = previous.comboByAge[age] ?? {
+        tshirtSize: age,
+        shortSize: "1",
+        tshirtPrice: previous.tshirtPrice || String(DEFAULT_TSHIRT_COMPONENT_PRICE),
+        shortPrice: previous.shortPrice || String(DEFAULT_SHORT_COMPONENT_PRICE),
+      };
+      const row = { ...current, [field]: value };
+      const nextCombo = { ...previous.comboByAge, [age]: row };
+      const tshirt = Number(row.tshirtPrice);
+      const short = Number(row.shortPrice);
+      const nextSizePrices = { ...previous.sizePrices };
+      if (Number.isFinite(tshirt) && tshirt > 0 && Number.isFinite(short) && short > 0) {
+        nextSizePrices[age] = String(getComboTotalPrice(tshirt, short));
+      }
+      return {
+        ...previous,
+        comboByAge: nextCombo,
+        sizePrices: nextSizePrices,
+      };
+    });
+  }
+
+  function toggleAge(age: string) {
+    const selected = new Set(parseAgesInput(form.sizes));
+    if (selected.has(age)) {
+      selected.delete(age);
+    } else {
+      selected.add(age);
+    }
+    updateAges([...selected].join(", "));
+  }
+
+  function applyShortSizes() {
+    updateAges(CLOTHING_SIZE_OPTIONS.join(", "));
+  }
+
+  function clearAges() {
+    updateAges("");
+  }
+
+  function onProductNameChange(nextName: string) {
+    setForm((previous) => {
+      let next = { ...previous, name: nextName };
+      if (
+        isTshirtShortCombo(nextName, previous.description) &&
+        (!previous.tshirtPrice || !previous.shortPrice)
+      ) {
+        const tshirt = previous.tshirtPrice || String(DEFAULT_TSHIRT_COMPONENT_PRICE);
+        const short = previous.shortPrice || String(DEFAULT_SHORT_COMPONENT_PRICE);
+        const ages = parseAgesInput(previous.sizes);
+        const total = getComboTotalPrice(Number(tshirt), Number(short));
+        next = {
+          ...next,
+          tshirtPrice: tshirt,
+          shortPrice: short,
+          newPrice: String(total),
+          sizePrices: buildSizePrices(ages, total, previous.sizePrices, true),
+          comboByAge: buildFormComboByAge(
+            ages,
+            Number(tshirt),
+            Number(short),
+            previous.comboByAge,
+          ),
+        };
+      }
+      if (!isShortLikeProduct(nextName, previous.id)) {
+        return next;
+      }
+      const current = parseAgesInput(next.sizes);
+      const alreadyHasClothingSizes = current.some((size) =>
+        CLOTHING_SIZE_OPTIONS.includes(size as (typeof CLOTHING_SIZE_OPTIONS)[number]),
+      );
+      if (alreadyHasClothingSizes) {
+        return next;
+      }
+      const sizes = [...CLOTHING_SIZE_OPTIONS];
+      const basePrice = Number(next.newPrice);
+      return {
+        ...next,
+        sizes: sizes.join(", "),
+        sizePrices: buildSizePrices(sizes, basePrice, next.sizePrices, true),
+      };
+    });
+  }
+
   function recalculateAgePrices() {
-    const ages = parseAgesInput(form.sizes);
+    const ages = sortAges(parseAgesInput(form.sizes));
     const basePrice = Number(form.newPrice);
+    const tshirt = Number(form.tshirtPrice);
+    const short = Number(form.shortPrice);
+    const hasCombo =
+      Number.isFinite(tshirt) && tshirt > 0 && Number.isFinite(short) && short > 0;
     setForm((previous) => ({
       ...previous,
       sizePrices: buildSizePrices(ages, basePrice, previous.sizePrices, true),
+      comboByAge: hasCombo
+        ? buildFormComboByAge(ages, tshirt, short, previous.comboByAge, true)
+        : previous.comboByAge,
     }));
   }
 
@@ -1280,7 +1615,10 @@ export default function AdminClient() {
 
   async function submitBannerForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!bannerForm.title.trim() || !bannerForm.image.trim()) return;
+    if (!bannerForm.title.trim() || !bannerForm.image.trim()) {
+      setError("Titre et image de bannière obligatoires (fichier local ou URL).");
+      return;
+    }
     try {
       const endpoint = editingBannerId ? `/api/banners/${editingBannerId}` : "/api/banners";
       const response = await fetch(endpoint, {
@@ -1570,7 +1908,7 @@ export default function AdminClient() {
                   </label>
                   <input
                     value={form.name}
-                    onChange={(event) => setForm((p) => ({ ...p, name: event.target.value }))}
+                    onChange={(event) => onProductNameChange(event.target.value)}
                     placeholder="Ex: Ensemble premium Dakar"
                     className="admin-input"
                   />
@@ -1600,9 +1938,70 @@ export default function AdminClient() {
                       type="number"
                       min={1}
                       className="admin-input"
+                      readOnly={
+                        Number(form.tshirtPrice) > 0 && Number(form.shortPrice) > 0
+                      }
                     />
                   </div>
                 </div>
+                {isTshirtShortCombo(form.name, form.description) ||
+                form.tshirtPrice ||
+                form.shortPrice ? (
+                  <div className="space-y-3 rounded-xl border border-stone-200 bg-[#fffcf8] p-3">
+                    <p className="admin-label mb-0">Complet T-shirt + short</p>
+                    <p className="text-xs text-stone-500">
+                      Le prix total est la somme du T-shirt et du short. Pour chaque âge ci-dessous,
+                      définissez la taille T-shirt et la taille short (1–6).
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <label className="block">
+                        <span className="mb-1 block text-xs font-medium text-stone-600">
+                          Prix T-shirt
+                        </span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={form.tshirtPrice}
+                          onChange={(event) =>
+                            updateComboComponentPrice("tshirtPrice", event.target.value)
+                          }
+                          placeholder={String(DEFAULT_TSHIRT_COMPONENT_PRICE)}
+                          className="admin-input"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1 block text-xs font-medium text-stone-600">
+                          Prix short
+                        </span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={form.shortPrice}
+                          onChange={(event) =>
+                            updateComboComponentPrice("shortPrice", event.target.value)
+                          }
+                          placeholder={String(DEFAULT_SHORT_COMPONENT_PRICE)}
+                          className="admin-input"
+                        />
+                      </label>
+                      <div>
+                        <span className="mb-1 block text-xs font-medium text-stone-600">
+                          Total
+                        </span>
+                        <p className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-[#9a7b4f]">
+                          {Number(form.tshirtPrice) > 0 && Number(form.shortPrice) > 0
+                            ? currency.format(
+                                getComboTotalPrice(
+                                  Number(form.tshirtPrice),
+                                  Number(form.shortPrice),
+                                ),
+                              )
+                            : "—"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="space-y-1">
                   <label className="admin-label">Stock disponible</label>
                   <input
@@ -1615,21 +2014,114 @@ export default function AdminClient() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="admin-label">Âges de l&apos;enfant (tailles)</label>
-                  <input
-                    value={form.sizes}
-                    onChange={(event) => updateAges(event.target.value)}
-                    placeholder="Ex: 6 ans, 8 ans, 10 ans, 12 ans"
-                    className="admin-input"
-                  />
+                  <label className="admin-label">Âges et tailles affichés sur la tenue</label>
                   <p className="text-xs text-stone-500">
-                    Séparez les âges par des virgules. Le prix évolue selon l&apos;âge choisi sur la
-                    boutique.
+                    Cochez les options proposées au client. Les âges (3–16 ans) et les tailles (à
+                    partir de 12 ans) non sélectionnés n&apos;apparaissent pas sur la boutique.
+                  </p>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-stone-400">
+                    Âges
                   </p>
                   <div className="flex flex-wrap gap-2">
+                    {AGE_OPTIONS.map((age) => {
+                      const isActive = parseAgesInput(form.sizes).includes(age);
+                      return (
+                        <button
+                          key={`age-option-${age}`}
+                          type="button"
+                          onClick={() => toggleAge(age)}
+                          aria-pressed={isActive}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                            isActive
+                              ? "border-[#b8956c] bg-[#b8956c] text-white shadow-sm"
+                              : "border-stone-200 bg-white text-stone-600 hover:border-[#d4b896] hover:text-[#9a7b4f]"
+                          }`}
+                        >
+                          {age}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="pt-1 text-[11px] font-medium uppercase tracking-wide text-stone-400">
+                    Tailles T-shirt (4 ans–XXL)
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {LETTER_SIZE_OPTIONS.map((size) => {
+                      const isActive = parseAgesInput(form.sizes).includes(size);
+                      return (
+                        <button
+                          key={`letter-size-option-${size}`}
+                          type="button"
+                          onClick={() => toggleAge(size)}
+                          aria-pressed={isActive}
+                          className={`min-w-12 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                            isActive
+                              ? "border-[#b8956c] bg-[#b8956c] text-white shadow-sm"
+                              : "border-stone-200 bg-white text-stone-600 hover:border-[#d4b896] hover:text-[#9a7b4f]"
+                          }`}
+                        >
+                          {size}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => updateAges(LETTER_SIZE_OPTIONS.join(", "))}
+                      className="rounded-full border border-[#d4b896] bg-[#f5efe4] px-3 py-1.5 text-xs font-semibold text-[#7a5f3a] transition hover:bg-[#ede4d4]"
+                    >
+                      Appliquer 4 ans–XXL (T-shirts)
+                    </button>
+                  </div>
+                  <p className="pt-1 text-[11px] font-medium uppercase tracking-wide text-stone-400">
+                    Tailles shorts (1 à 6)
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {SIZE_OPTIONS.map((size) => {
+                      const isActive = parseAgesInput(form.sizes).includes(size);
+                      return (
+                        <button
+                          key={`size-option-${size}`}
+                          type="button"
+                          onClick={() => toggleAge(size)}
+                          aria-pressed={isActive}
+                          className={`min-w-12 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                            isActive
+                              ? "border-[#b8956c] bg-[#b8956c] text-white shadow-sm"
+                              : "border-stone-200 bg-white text-stone-600 hover:border-[#d4b896] hover:text-[#9a7b4f]"
+                          }`}
+                        >
+                          Taille {size}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={applyShortSizes}
+                      className="rounded-full border border-[#d4b896] bg-[#f5efe4] px-3 py-1.5 text-xs font-semibold text-[#7a5f3a] transition hover:bg-[#ede4d4]"
+                    >
+                      Appliquer tailles 1–6 (shorts)
+                    </button>
+                  </div>
+                  {isShortLikeProduct(form.name, form.id) ? (
+                    <p className="text-xs text-[#9a7b4f]">
+                      Ce produit est un short : les tailles 1 à 6 sont recommandées.
+                    </p>
+                  ) : null}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-stone-400">
+                      Raccourcis
+                    </span>
                     {AGE_PRESETS.map((preset) => {
                       const label = preset.join(", ");
-                      const isActive = form.sizes.trim() === label;
+                      const selected = parseAgesInput(form.sizes);
+                      const isActive =
+                        selected.length === preset.length &&
+                        preset.every((age) => selected.includes(age));
+                      const shortLabel = SIZE_OPTIONS.includes(
+                        preset[0] as (typeof SIZE_OPTIONS)[number],
+                      )
+                        ? preset.join(" · ")
+                        : `${preset[0]}–${preset[preset.length - 1]}`;
                       return (
                         <button
                           key={label}
@@ -1637,56 +2129,202 @@ export default function AdminClient() {
                           onClick={() => updateAges(label)}
                           className={`rounded-full px-3 py-1 text-xs font-medium transition ${
                             isActive
-                              ? "bg-[#b8956c] text-white shadow-sm"
+                              ? "bg-[#ede4d4] text-[#7a5f3a]"
                               : "bg-[#f5efe4] text-[#9a7b4f] hover:bg-[#ede4d4]"
                           }`}
                         >
-                          {label}
+                          {shortLabel}
                         </button>
                       );
                     })}
+                    {parseAgesInput(form.sizes).length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={clearAges}
+                        className="rounded-full px-3 py-1 text-xs font-medium text-rose-600 transition hover:bg-rose-50"
+                      >
+                        Tout retirer
+                      </button>
+                    ) : null}
                   </div>
                   {parseAgesInput(form.sizes).length > 0 ? (
-                    <div className="space-y-3 rounded-xl border border-stone-200 bg-[#fffcf8] p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="admin-label mb-0">Prix par âge (XOF)</p>
-                        <button
-                          type="button"
-                          onClick={recalculateAgePrices}
-                          className="admin-btn-ghost text-xs"
-                        >
-                          Recalculer depuis le prix de base
-                        </button>
+                    <p className="text-xs font-medium text-stone-600">
+                      Affichés : {parseAgesInput(form.sizes).join(" · ")}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-700">
+                      Aucune option sélectionnée : le client n&apos;aura pas de choix d&apos;âge /
+                      taille sur cette tenue.
+                    </p>
+                  )}
+                  {parseAgesInput(form.sizes).length > 0 ? (
+                    Number(form.tshirtPrice) > 0 && Number(form.shortPrice) > 0 ? (
+                      <div className="space-y-3 rounded-xl border border-stone-200 bg-[#fffcf8] p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="admin-label mb-0">
+                            Par âge : taille T-shirt + taille short
+                          </p>
+                          <button
+                            type="button"
+                            onClick={recalculateAgePrices}
+                            className="admin-btn-ghost text-xs"
+                          >
+                            Réappliquer les prix par défaut
+                          </button>
+                        </div>
+                        <p className="text-xs text-stone-500">
+                          Chaque âge a sa taille T-shirt et sa taille short (1–6). Le total =
+                          T-shirt + short.
+                        </p>
+                        <div className="space-y-3">
+                          {parseAgesInput(form.sizes).map((age) => {
+                            const row = form.comboByAge[age] ?? {
+                              tshirtSize: age,
+                              shortSize: "1",
+                              tshirtPrice: form.tshirtPrice,
+                              shortPrice: form.shortPrice,
+                            };
+                            const rowTotal =
+                              Number(row.tshirtPrice) > 0 && Number(row.shortPrice) > 0
+                                ? getComboTotalPrice(
+                                    Number(row.tshirtPrice),
+                                    Number(row.shortPrice),
+                                  )
+                                : null;
+                            return (
+                              <div
+                                key={`combo-age-${age}`}
+                                className="rounded-lg border border-stone-200 bg-white p-3"
+                              >
+                                <p className="mb-2 text-sm font-semibold text-stone-700">{age}</p>
+                                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                                  <label className="block">
+                                    <span className="mb-1 block text-xs font-medium text-stone-600">
+                                      Taille T-shirt (4 ans–XXL)
+                                    </span>
+                                    <select
+                                      value={
+                                        LETTER_SIZE_OPTIONS.includes(
+                                          row.tshirtSize as (typeof LETTER_SIZE_OPTIONS)[number],
+                                        )
+                                          ? row.tshirtSize
+                                          : "8 ans"
+                                      }
+                                      onChange={(event) =>
+                                        updateComboAgeField(age, "tshirtSize", event.target.value)
+                                      }
+                                      className="admin-input"
+                                    >
+                                      {LETTER_SIZE_OPTIONS.map((size) => (
+                                        <option key={`${age}-tshirt-${size}`} value={size}>
+                                          {size}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  <label className="block">
+                                    <span className="mb-1 block text-xs font-medium text-stone-600">
+                                      Taille short
+                                    </span>
+                                    <select
+                                      value={row.shortSize}
+                                      onChange={(event) =>
+                                        updateComboAgeField(age, "shortSize", event.target.value)
+                                      }
+                                      className="admin-input"
+                                    >
+                                      {CLOTHING_SIZE_OPTIONS.map((size) => (
+                                        <option key={`${age}-short-${size}`} value={size}>
+                                          {size}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  <label className="block">
+                                    <span className="mb-1 block text-xs font-medium text-stone-600">
+                                      Prix T-shirt
+                                    </span>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      value={row.tshirtPrice}
+                                      onChange={(event) =>
+                                        updateComboAgeField(age, "tshirtPrice", event.target.value)
+                                      }
+                                      className="admin-input"
+                                    />
+                                  </label>
+                                  <label className="block">
+                                    <span className="mb-1 block text-xs font-medium text-stone-600">
+                                      Prix short
+                                    </span>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      value={row.shortPrice}
+                                      onChange={(event) =>
+                                        updateComboAgeField(age, "shortPrice", event.target.value)
+                                      }
+                                      className="admin-input"
+                                    />
+                                  </label>
+                                  <div>
+                                    <span className="mb-1 block text-xs font-medium text-stone-600">
+                                      Total
+                                    </span>
+                                    <p className="rounded-lg border border-stone-200 bg-[#fffcf8] px-3 py-2 text-sm font-semibold text-[#9a7b4f]">
+                                      {rowTotal !== null ? currency.format(rowTotal) : "—"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <p className="text-xs text-stone-500">
-                        Prix de base = plus petit âge. Par défaut : +500 F par année d&apos;écart.
-                      </p>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {parseAgesInput(form.sizes).map((age) => (
-                          <label key={`age-price-${age}`} className="block">
-                            <span className="mb-1 block text-xs font-medium text-stone-600">
-                              {age}
-                            </span>
-                            <input
-                              type="number"
-                              min={1}
-                              value={form.sizePrices[age] ?? ""}
-                              onChange={(event) =>
-                                setForm((previous) => ({
-                                  ...previous,
-                                  sizePrices: {
-                                    ...previous.sizePrices,
-                                    [age]: event.target.value,
-                                  },
-                                }))
-                              }
-                              placeholder="Ex: 22000"
-                              className="admin-input"
-                            />
-                          </label>
-                        ))}
+                    ) : (
+                      <div className="space-y-3 rounded-xl border border-stone-200 bg-[#fffcf8] p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="admin-label mb-0">Prix par âge / taille (XOF)</p>
+                          <button
+                            type="button"
+                            onClick={recalculateAgePrices}
+                            className="admin-btn-ghost text-xs"
+                          >
+                            Appliquer le prix de base à tous
+                          </button>
+                        </div>
+                        <p className="text-xs text-stone-500">
+                          Même prix pour toutes les options par défaut. Vous pouvez encore saisir un
+                          prix différent manuellement.
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {parseAgesInput(form.sizes).map((age) => (
+                            <label key={`age-price-${age}`} className="block">
+                              <span className="mb-1 block text-xs font-medium text-stone-600">
+                                {age}
+                              </span>
+                              <input
+                                type="number"
+                                min={1}
+                                value={form.sizePrices[age] ?? ""}
+                                onChange={(event) =>
+                                  setForm((previous) => ({
+                                    ...previous,
+                                    sizePrices: {
+                                      ...previous.sizePrices,
+                                      [age]: event.target.value,
+                                    },
+                                  }))
+                                }
+                                placeholder="Ex: 22000"
+                                className="admin-input"
+                              />
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )
                   ) : null}
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
@@ -1761,6 +2399,10 @@ export default function AdminClient() {
                   <label className="admin-label">
                     Sous-categorie
                   </label>
+                  <p className="text-xs text-stone-500">
+                    Obligatoire pour classer la tenue dans la bonne section de l&apos;école
+                    (ex. Tenues Sports BP, Maternel JP…).
+                  </p>
                   <select
                     value={form.subcategory}
                     onChange={(event) =>
@@ -1768,8 +2410,9 @@ export default function AdminClient() {
                     }
                     aria-label="Sous-categorie du produit"
                     className="admin-input"
+                    required={availableProductSubcategories.length > 0}
                   >
-                    <option value="">Aucune sous-categorie</option>
+                    <option value="">Choisir une sous-categorie</option>
                     {availableProductSubcategories.map((subcategory) => (
                       <option key={`${form.category}-${subcategory}`} value={subcategory}>
                         {subcategory}

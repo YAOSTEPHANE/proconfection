@@ -1,4 +1,4 @@
-import { FormEvent } from "react";
+import { ChangeEvent, FormEvent, useState } from "react";
 import type { DashboardBanner } from "@/lib/dashboard-content";
 import { PremiumModal } from "./DashboardHeader";
 
@@ -28,12 +28,47 @@ export default function BannerFormModal({
   onChange,
   onSubmit,
 }: BannerFormModalProps) {
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   if (!open) return null;
+
+  async function handleLocalImageUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Choisissez un fichier image (JPG, PNG, WebP…).");
+      event.target.value = "";
+      return;
+    }
+
+    // ~4 Mo en fichier → data URL raisonnable pour Mongo
+    if (file.size > 4 * 1024 * 1024) {
+      setUploadError("Image trop lourde (max 4 Mo). Compressez-la puis réessayez.");
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      const uploadedImage = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Lecture de l'image impossible."));
+        reader.readAsDataURL(file);
+      });
+      onChange({ ...form, image: uploadedImage });
+      setUploadError(null);
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Upload impossible.");
+    } finally {
+      event.target.value = "";
+    }
+  }
 
   return (
     <PremiumModal
       title={editingId ? "Modifier la bannière" : "Nouvelle bannière"}
-      subtitle="Marketing"
+      subtitle="Carrousel & marketing"
       onClose={onClose}
       size="md"
     >
@@ -55,14 +90,31 @@ export default function BannerFormModal({
             className="admin-input"
           />
         </label>
-        <label className="block md:col-span-2">
-          <span className="admin-label">URL de l&apos;image</span>
+
+        <div className="space-y-2 rounded-xl border border-stone-200 bg-white p-3 md:col-span-2">
+          <label htmlFor="banner-image-upload" className="admin-label">
+            Image depuis le PC
+          </label>
           <input
-            value={form.image}
+            id="banner-image-upload"
+            type="file"
+            accept="image/*"
+            onChange={handleLocalImageUpload}
+            className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-indigo-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+          />
+          <p className="text-xs text-stone-500">
+            JPG, PNG ou WebP — max 4 Mo. Utilisé pour le carrousel d&apos;accueil.
+          </p>
+          {uploadError ? <p className="text-xs font-medium text-red-600">{uploadError}</p> : null}
+        </div>
+
+        <label className="block md:col-span-2">
+          <span className="admin-label">Ou URL de l&apos;image</span>
+          <input
+            value={form.image.startsWith("data:") ? "" : form.image}
             onChange={(e) => onChange({ ...form, image: e.target.value })}
             className="admin-input"
-            placeholder="https://..."
-            required
+            placeholder="https://… (optionnel si fichier local)"
           />
         </label>
         {form.image.trim() ? (
@@ -72,6 +124,9 @@ export default function BannerFormModal({
               alt="Aperçu bannière"
               className="h-36 w-full rounded-xl border border-stone-200 object-cover"
             />
+            {form.image.startsWith("data:") ? (
+              <p className="mt-1 text-xs text-stone-500">Image locale chargée</p>
+            ) : null}
           </div>
         ) : null}
         <label className="block">
@@ -96,7 +151,7 @@ export default function BannerFormModal({
             aria-label="Position bannière"
             className="admin-input"
           >
-            <option value="hero">Bannière principale</option>
+            <option value="hero">Carrousel principal (accueil)</option>
             <option value="middle">Milieu de page</option>
             <option value="sidebar">Barre latérale</option>
           </select>

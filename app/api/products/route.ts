@@ -3,6 +3,8 @@ import {
   applySchoolPricingGrid,
   DEFAULT_SCHOOL_PRICING_COEFFICIENTS,
   defaultProducts,
+  parseComboByAge,
+  sizePricesFromComboByAge,
   type Product,
   type SchoolPricingCoefficients,
 } from "@/lib/catalog";
@@ -33,7 +35,7 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json(applySchoolPricingGrid(products, coefficients), {
+    return NextResponse.json(products, {
       headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" },
     });
   } catch (error) {
@@ -95,13 +97,30 @@ export async function POST(request: Request) {
               .filter(([age, value]) => age.length > 0 && Number.isFinite(value) && value > 0),
           )
         : undefined;
+    const tshirtPrice =
+      Number.isFinite(body.tshirtPrice) && Number(body.tshirtPrice) > 0
+        ? Number(body.tshirtPrice)
+        : undefined;
+    const shortPrice =
+      Number.isFinite(body.shortPrice) && Number(body.shortPrice) > 0
+        ? Number(body.shortPrice)
+        : undefined;
+    const comboByAge = parseComboByAge(body.comboByAge);
+    const comboTotal =
+      tshirtPrice && shortPrice ? Math.round(tshirtPrice + shortPrice) : Number(body.price);
+    const resolvedSizePrices =
+      comboByAge && Object.keys(comboByAge).length > 0
+        ? sizePricesFromComboByAge(comboByAge)
+        : sizePrices && Object.keys(sizePrices).length > 0
+          ? sizePrices
+          : undefined;
 
     const product: Product = {
       id: body.id,
       name: body.name,
       category: body.category.trim(),
       subcategory: body.subcategory?.trim() || undefined,
-      price: Number(body.price),
+      price: comboTotal,
       image: body.image,
       images: images.length > 0 ? images : undefined,
       oldPrice,
@@ -109,8 +128,10 @@ export async function POST(request: Request) {
       discountPercentage,
       description: body.description ?? "Description indisponible.",
       sizes,
-      sizePrices:
-        sizePrices && Object.keys(sizePrices).length > 0 ? sizePrices : undefined,
+      sizePrices: resolvedSizePrices,
+      tshirtPrice,
+      shortPrice,
+      comboByAge,
     };
 
     const db = await getDb();
