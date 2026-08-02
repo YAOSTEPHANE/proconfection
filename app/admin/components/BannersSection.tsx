@@ -4,8 +4,8 @@ import { EmptyState, MiniStat } from "./AdminUi";
 
 const POSITION_LABELS: Record<DashboardBanner["position"], string> = {
   hero: "Carrousel principal",
-  middle: "Milieu de page",
-  sidebar: "Barre latérale",
+  middle: "Milieu (3 vignettes)",
+  sidebar: "Latérales (2 cartes)",
 };
 
 type BannersSectionProps = {
@@ -28,7 +28,7 @@ export default function BannersSection({
   return (
     <SectionPanel
       title="Bannières / Carrousel"
-      subtitle="Images du carrousel d'accueil — ajoutez des visuels depuis votre PC"
+      subtitle="Carrousel, cartes latérales et 3 vignettes du milieu"
       action={
         <button type="button" onClick={onCreate} className="admin-btn-primary text-sm">
           + Nouvelle bannière

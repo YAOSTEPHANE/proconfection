@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { hasValidAdminSession } from "@/lib/auth";
 import { parseComboByAge, sizePricesFromComboByAge, type Product } from "@/lib/catalog";
+import { materializeImageRef, materializeImageRefs } from "@/lib/image-storage";
+
+export const runtime = "nodejs";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -75,14 +78,18 @@ export async function PUT(request: Request, { params }: Params) {
           ? sizePrices
           : undefined;
 
+    const materializedImage = await materializeImageRef(body.image.trim());
+    const materializedImages =
+      images.length > 0 ? await materializeImageRefs(images) : [];
+
     const db = await getDb();
     const update: Partial<Product> = {
       name: body.name.trim(),
       category: body.category.trim(),
       subcategory: body.subcategory?.trim() || undefined,
       price: comboTotal,
-      image: body.image.trim(),
-      images: images.length > 0 ? images : undefined,
+      image: materializedImage,
+      images: materializedImages.length > 0 ? materializedImages : undefined,
       oldPrice,
       stock,
       discountPercentage,

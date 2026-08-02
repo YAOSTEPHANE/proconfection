@@ -1,5 +1,6 @@
 import { ChangeEvent, FormEvent, useState } from "react";
 import type { DashboardBanner } from "@/lib/dashboard-content";
+import { uploadImagesToServer } from "@/lib/client-upload";
 import { PremiumModal } from "./DashboardHeader";
 
 export type BannerFormState = {
@@ -29,6 +30,7 @@ export default function BannerFormModal({
   onSubmit,
 }: BannerFormModalProps) {
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   if (!open) return null;
 
@@ -42,28 +44,32 @@ export default function BannerFormModal({
       return;
     }
 
-    // ~4 Mo en fichier → data URL raisonnable pour Mongo
     if (file.size > 4 * 1024 * 1024) {
       setUploadError("Image trop lourde (max 4 Mo). Compressez-la puis réessayez.");
       event.target.value = "";
       return;
     }
 
+    setUploading(true);
     try {
-      const uploadedImage = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error("Lecture de l'image impossible."));
-        reader.readAsDataURL(file);
-      });
+      const [uploadedImage] = await uploadImagesToServer([file]);
+      if (!uploadedImage) {
+        throw new Error("Upload impossible.");
+      }
       onChange({ ...form, image: uploadedImage });
       setUploadError(null);
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Upload impossible.");
     } finally {
+      setUploading(false);
       event.target.value = "";
     }
   }
+
+  const imageIsLocal =
+    form.image.startsWith("data:") ||
+    form.image.startsWith("/uploads/") ||
+    form.image.startsWith("/api/media/");
 
   return (
     <PremiumModal
@@ -83,11 +89,12 @@ export default function BannerFormModal({
           />
         </label>
         <label className="block">
-          <span className="admin-label">Sous-titre</span>
+          <span className="admin-label">Sous-titre / prix affiché</span>
           <input
             value={form.subtitle}
             onChange={(e) => onChange({ ...form, subtitle: e.target.value })}
             className="admin-input"
+            placeholder="Ex. 39 000 XOF (cartes latérales)"
           />
         </label>
 
@@ -100,18 +107,20 @@ export default function BannerFormModal({
             type="file"
             accept="image/*"
             onChange={handleLocalImageUpload}
+            disabled={uploading}
             className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-indigo-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
           />
           <p className="text-xs text-stone-500">
             JPG, PNG ou WebP — max 4 Mo. Utilisé pour le carrousel d&apos;accueil.
           </p>
+          {uploading ? <p className="text-xs font-medium text-indigo-600">Upload en cours…</p> : null}
           {uploadError ? <p className="text-xs font-medium text-red-600">{uploadError}</p> : null}
         </div>
 
         <label className="block md:col-span-2">
           <span className="admin-label">Ou URL de l&apos;image</span>
           <input
-            value={form.image.startsWith("data:") ? "" : form.image}
+            value={imageIsLocal ? "" : form.image}
             onChange={(e) => onChange({ ...form, image: e.target.value })}
             className="admin-input"
             placeholder="https://… (optionnel si fichier local)"
@@ -124,7 +133,7 @@ export default function BannerFormModal({
               alt="Aperçu bannière"
               className="h-36 w-full rounded-xl border border-stone-200 object-cover"
             />
-            {form.image.startsWith("data:") ? (
+            {imageIsLocal ? (
               <p className="mt-1 text-xs text-stone-500">Image locale chargée</p>
             ) : null}
           </div>
@@ -152,8 +161,8 @@ export default function BannerFormModal({
             className="admin-input"
           >
             <option value="hero">Carrousel principal (accueil)</option>
-            <option value="middle">Milieu de page</option>
-            <option value="sidebar">Barre latérale</option>
+            <option value="middle">Milieu de page (3 vignettes)</option>
+            <option value="sidebar">Cartes latérales (2 vignettes)</option>
           </select>
         </label>
         <label className="inline-flex items-center gap-2 text-sm text-stone-700 md:col-span-2">
@@ -165,7 +174,7 @@ export default function BannerFormModal({
           />
           Bannière active
         </label>
-        <button type="submit" className="admin-btn-primary md:col-span-2">
+        <button type="submit" className="admin-btn-primary md:col-span-2" disabled={uploading}>
           {editingId ? "Enregistrer la bannière" : "Ajouter la bannière"}
         </button>
       </form>

@@ -158,12 +158,14 @@ export default function Home() {
         price: "39 000 XOF",
         image:
           "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=900&q=80",
+        link: "/categories",
       },
       {
         title: "Sacs tendance",
         price: "28 000 XOF",
         image:
           "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=900&q=80",
+        link: "/categories",
       },
     ],
     [],
@@ -174,10 +176,20 @@ export default function Home() {
       .slice(0, 2)
       .map((banner) => ({
         title: banner.title,
-        price: "Offre",
+        price: banner.subtitle?.trim() || "Offre",
         image: banner.image,
+        link: banner.link?.trim() || "/categories",
       }));
-    return sidebarBanners.length === 2 ? sidebarBanners : fallbackSideBanners;
+
+    if (sidebarBanners.length === 0) {
+      return fallbackSideBanners;
+    }
+
+    // 1 ou 2 bannières admin : on complète avec le fallback si besoin.
+    return [
+      sidebarBanners[0] ?? fallbackSideBanners[0]!,
+      sidebarBanners[1] ?? fallbackSideBanners[1]!,
+    ];
   }, [dynamicBanners, fallbackSideBanners]);
   const fallbackMidPromoBanners = useMemo(
     () => [
@@ -221,13 +233,19 @@ export default function Home() {
         title: banner.title,
         subtitle: banner.subtitle || "Offre du moment",
         image: banner.image,
+        link: banner.link?.trim() || "/categories",
       }));
-    return middleBanners.length > 0 ? middleBanners : fallbackMidPromoBanners;
+    return middleBanners.length > 0
+      ? middleBanners
+      : fallbackMidPromoBanners.map((banner) => ({ ...banner, link: "/categories" }));
   }, [dynamicBanners, fallbackMidPromoBanners]);
 
   const visibleMidPromoBanners = useMemo(() => {
     if (midPromoBanners.length === 0) {
-      return fallbackMidPromoBanners.slice(0, 3);
+      return fallbackMidPromoBanners.slice(0, 3).map((banner) => ({
+        ...banner,
+        link: "/categories",
+      }));
     }
     return Array.from({ length: 3 }, (_, offset) => {
       return midPromoBanners[(midBannerIndex + offset) % midPromoBanners.length]!;
@@ -502,7 +520,10 @@ export default function Home() {
               className="object-cover"
               sizes="(max-width: 768px) 100vw, 900px"
               priority
-              unoptimized={activeBanner.image.startsWith("data:")}
+              unoptimized={
+                activeBanner.image.startsWith("data:") ||
+                activeBanner.image.startsWith("/api/media/")
+              }
             />
             <div className="absolute inset-0 bg-linear-to-r from-slate-950/75 via-indigo-950/65 to-violet-900/65" />
             <div className="relative h-full">
@@ -546,30 +567,32 @@ export default function Home() {
           </div>
 
           <div className="hidden shrink-0 gap-4 lg:flex lg:w-72 lg:flex-col">
-            {(sideBanners[0] ? [sideBanners[0], sideBanners[1] ?? fallbackSideBanners[1]] : fallbackSideBanners).map(
-              (banner, index) => (
-                <div
-                  key={`side-banner-${banner.title}-${index}`}
-                  className="relative h-44 w-full overflow-hidden rounded-2xl shadow-lg"
-                >
-                  <Image
-                    src={banner.image}
-                    alt={banner.title}
-                    fill
-                    className="object-cover"
-                    sizes="256px"
-                    unoptimized={banner.image.startsWith("data:")}
-                  />
-                  <div className="absolute inset-0 bg-black/35" />
-                  <p className="absolute bottom-2 left-2 right-2 line-clamp-2 text-sm font-bold text-white">
-                    {banner.title}
-                  </p>
-                  <p className="absolute left-2 top-2 rounded-full bg-white/85 px-2.5 py-1 text-xs font-bold text-slate-800">
-                    {banner.price}
-                  </p>
-                </div>
-              ),
-            )}
+            {sideBanners.map((banner, index) => (
+              <Link
+                key={`side-banner-${banner.title}-${index}`}
+                href={banner.link || "/categories"}
+                className="relative h-44 w-full overflow-hidden rounded-2xl shadow-lg transition hover:opacity-95"
+              >
+                <Image
+                  src={banner.image}
+                  alt={banner.title}
+                  fill
+                  className="object-cover"
+                  sizes="256px"
+                  unoptimized={
+                    banner.image.startsWith("data:") ||
+                    banner.image.startsWith("/api/media/")
+                  }
+                />
+                <div className="absolute inset-0 bg-black/35" />
+                <p className="absolute bottom-2 left-2 right-2 line-clamp-2 text-sm font-bold text-white">
+                  {banner.title}
+                </p>
+                <p className="absolute left-2 top-2 rounded-full bg-white/85 px-2.5 py-1 text-xs font-bold text-slate-800">
+                  {banner.price}
+                </p>
+              </Link>
+            ))}
           </div>
         </div>
 
@@ -836,8 +859,9 @@ export default function Home() {
                 <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
                   <div className="grid gap-3 md:grid-cols-3">
                     {visibleMidPromoBanners.map((banner) => (
-                      <div
+                      <Link
                         key={`${banner.title}-${midBannerIndex}`}
+                        href={banner.link || "/categories"}
                         className="group relative h-48 overflow-hidden rounded-xl"
                       >
                         <Image
@@ -846,14 +870,17 @@ export default function Home() {
                           fill
                           className="object-cover transition duration-500 group-hover:scale-105"
                           sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                          unoptimized={banner.image.startsWith("data:")}
+                          unoptimized={
+                            banner.image.startsWith("data:") ||
+                            banner.image.startsWith("/api/media/")
+                          }
                         />
                         <div className="absolute inset-0 bg-black/35" />
                         <div className="absolute inset-0 flex flex-col justify-end p-3 text-white">
                           <p className="line-clamp-1 text-sm font-bold">{banner.title}</p>
                           <p className="line-clamp-1 text-[11px] text-white/90">{banner.subtitle}</p>
                         </div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 </div>

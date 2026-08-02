@@ -9,8 +9,11 @@ import {
   type SchoolPricingCoefficients,
 } from "@/lib/catalog";
 import { hasValidAdminSession } from "@/lib/auth";
+import { materializeImageRef, materializeImageRefs } from "@/lib/image-storage";
+import { materializeProductsImages } from "@/lib/migrate-product-images";
 import { getDb } from "@/lib/mongodb";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -35,7 +38,10 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json(products, {
+    // Convertit les images base64 (lentes) en fichiers /uploads une seule fois.
+    const lightweightProducts = await materializeProductsImages(db, products);
+
+    return NextResponse.json(lightweightProducts, {
       headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" },
     });
   } catch (error) {
@@ -115,14 +121,18 @@ export async function POST(request: Request) {
           ? sizePrices
           : undefined;
 
+    const materializedImage = await materializeImageRef(body.image);
+    const materializedImages =
+      images.length > 0 ? await materializeImageRefs(images) : [];
+
     const product: Product = {
       id: body.id,
       name: body.name,
       category: body.category.trim(),
       subcategory: body.subcategory?.trim() || undefined,
       price: comboTotal,
-      image: body.image,
-      images: images.length > 0 ? images : undefined,
+      image: materializedImage,
+      images: materializedImages.length > 0 ? materializedImages : undefined,
       oldPrice,
       stock,
       discountPercentage,

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { hasValidAdminSession } from "@/lib/auth";
 import { getDb } from "@/lib/mongodb";
 import type { DashboardBanner } from "@/lib/dashboard-content";
+import { materializeImageRef } from "@/lib/image-storage";
+
+export const runtime = "nodejs";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -37,10 +40,15 @@ export async function PUT(request: Request, { params }: Params) {
     const body = (await request.json()) as Partial<DashboardBanner>;
     const validated = validateBannerInput(body);
     if (typeof validated === "string") return NextResponse.json({ error: validated }, { status: 400 });
+    const image = await materializeImageRef(validated.image);
     const db = await getDb();
-    const result = await db.collection<DashboardBanner>("dashboard_banners").updateOne({ id }, { $set: validated });
+    const result = await db
+      .collection<DashboardBanner>("dashboard_banners")
+      .updateOne({ id }, { $set: { ...validated, image } });
     if (result.matchedCount === 0) return NextResponse.json({ error: "Banniere introuvable." }, { status: 404 });
-    const updated = await db.collection<DashboardBanner>("dashboard_banners").findOne({ id }, { projection: { _id: 0 } });
+    const updated = await db
+      .collection<DashboardBanner>("dashboard_banners")
+      .findOne({ id }, { projection: { _id: 0 } });
     return NextResponse.json(updated);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Connexion MongoDB impossible.";

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { hasValidAdminSession } from "@/lib/auth";
 import { getDb } from "@/lib/mongodb";
-import { defaultDashboardBanners, type DashboardBanner } from "@/lib/dashboard-content";
+import { defaultDashboardBanners, defaultMiddleBanners, defaultSidebarBanners, type DashboardBanner } from "@/lib/dashboard-content";
+import { materializeImageRef, needsImageMaterialization } from "@/lib/image-storage";
+
+export const runtime = "nodejs";
 
 type BannerInput = {
   title: string;
@@ -38,7 +41,36 @@ export async function GET() {
       await db.collection<DashboardBanner>("dashboard_banners").insertMany(defaultDashboardBanners);
       return NextResponse.json(defaultDashboardBanners);
     }
-    return NextResponse.json(banners);
+
+    // Assure les 2 bannières latérales éditables (chaussures / sacs) si absentes.
+    const hasSidebar = banners.some((banner) => banner.position === "sidebar");
+    const hasMiddle = banners.some((banner) => banner.position === "middle");
+    let allBanners = banners;
+    const toInsert: DashboardBanner[] = [];
+    if (!hasSidebar) toInsert.push(...defaultSidebarBanners);
+    if (!hasMiddle) toInsert.push(...defaultMiddleBanners);
+    if (toInsert.length > 0) {
+      await db.collection<DashboardBanner>("dashboard_banners").insertMany(toInsert);
+      allBanners = [...toInsert, ...banners];
+    }
+
+    const lightweight: DashboardBanner[] = [];
+    for (const banner of allBanners) {
+      if (!needsImageMaterialization(banner.image)) {
+        lightweight.push(banner);
+        continue;
+      }
+      const image = await materializeImageRef(banner.image);
+      if (image !== banner.image) {
+        await db.collection<DashboardBanner>("dashboard_banners").updateOne(
+          { id: banner.id },
+          { $set: { image } },
+        );
+      }
+      lightweight.push({ ...banner, image });
+    }
+
+    return NextResponse.json(lightweight);
   } catch (error) {
     console.warn("GET /api/banners fallback vers defaultDashboardBanners:", error);
     return NextResponse.json(defaultDashboardBanners);
@@ -52,10 +84,12 @@ export async function POST(request: Request) {
     const body = (await request.json()) as Partial<DashboardBanner>;
     const validated = validateBannerInput(body);
     if (typeof validated === "string") return NextResponse.json({ error: validated }, { status: 400 });
+    const image = await materializeImageRef(validated.image);
     const banner: DashboardBanner = {
       id: `ban-${crypto.randomUUID().slice(0, 8)}`,
       createdAt: new Date().toISOString(),
       ...validated,
+      image,
     };
     const db = await getDb();
     await db.collection<DashboardBanner>("dashboard_banners").insertOne(banner);

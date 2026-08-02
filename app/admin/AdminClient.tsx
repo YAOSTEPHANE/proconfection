@@ -23,6 +23,7 @@ import {
   type SchoolPricingCoefficients,
   type Product,
 } from "@/lib/catalog";
+import { uploadImagesToServer } from "@/lib/client-upload";
 import type { DashboardBanner, DashboardCategory } from "@/lib/dashboard-content";
 import type { UserRecord } from "@/lib/users";
 import { DEFAULT_SHOP_SETTINGS, type ShopSettings } from "@/lib/settings";
@@ -1202,15 +1203,8 @@ export default function AdminClient() {
     if (!files || files.length === 0) {
       return;
     }
-    const readAsDataUrl = (file: File) =>
-      new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error("Lecture image impossible."));
-        reader.readAsDataURL(file);
-      });
     try {
-      const uploadedImages = await Promise.all(Array.from(files).map((file) => readAsDataUrl(file)));
+      const uploadedImages = await uploadImagesToServer(Array.from(files));
       setForm((previous) => {
         const combined = [previous.image, ...previous.images, ...uploadedImages].filter(
           (image, index, array) => image && array.indexOf(image) === index,
@@ -1235,12 +1229,10 @@ export default function AdminClient() {
       return;
     }
     try {
-      const uploadedImage = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error("Lecture image categorie impossible."));
-        reader.readAsDataURL(file);
-      });
+      const [uploadedImage] = await uploadImagesToServer([file]);
+      if (!uploadedImage) {
+        throw new Error("Upload image categorie impossible.");
+      }
       setCategoryForm((previous) => ({ ...previous, image: uploadedImage }));
       setError(null);
     } catch (uploadError) {
