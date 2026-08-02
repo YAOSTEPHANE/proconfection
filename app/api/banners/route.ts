@@ -42,16 +42,16 @@ export async function GET() {
       return NextResponse.json(defaultDashboardBanners);
     }
 
-    // Assure les 2 bannières latérales éditables (chaussures / sacs) si absentes.
+    // Assure les bannières latérales / milieu éditables si absentes.
     const hasSidebar = banners.some((banner) => banner.position === "sidebar");
     const hasMiddle = banners.some((banner) => banner.position === "middle");
-    let allBanners = banners;
+    let allBanners: DashboardBanner[] = [...banners];
     const toInsert: DashboardBanner[] = [];
     if (!hasSidebar) toInsert.push(...defaultSidebarBanners);
     if (!hasMiddle) toInsert.push(...defaultMiddleBanners);
     if (toInsert.length > 0) {
       await db.collection<DashboardBanner>("dashboard_banners").insertMany(toInsert);
-      allBanners = [...toInsert, ...banners];
+      allBanners = [...toInsert, ...allBanners];
     }
 
     const lightweight: DashboardBanner[] = [];
