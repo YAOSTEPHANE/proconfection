@@ -77,7 +77,6 @@ export default function Home() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [bannerIndex, setBannerIndex] = useState(0);
-  const [midBannerIndex, setMidBannerIndex] = useState(0);
   const [lastAddedProductId, setLastAddedProductId] = useState<string | null>(null);
   const [dynamicCategories, setDynamicCategories] = useState<DashboardCategory[]>([]);
   const [dynamicBanners, setDynamicBanners] = useState<DashboardBanner[]>([]);
@@ -191,82 +190,6 @@ export default function Home() {
       sidebarBanners[1] ?? fallbackSideBanners[1]!,
     ];
   }, [dynamicBanners, fallbackSideBanners]);
-  const fallbackMidPromoBanners = useMemo(
-    () => [
-      {
-        title: "Bijoux iconiques",
-        subtitle: "Nouvelles pieces en edition limitee",
-        image:
-          "https://images.unsplash.com/photo-1617038220319-276d3cfab638?auto=format&fit=crop&w=1600&q=80",
-      },
-      {
-        title: "Collection sport active",
-        subtitle: "Confort et performance au quotidien",
-        image:
-          "https://images.unsplash.com/photo-1517960413843-0aee8e2b3285?auto=format&fit=crop&w=1600&q=80",
-      },
-      {
-        title: "Style premium urbain",
-        subtitle: "Looks modernes pour chaque occasion",
-        image:
-          "https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=1600&q=80",
-      },
-      {
-        title: "Offres exclusives",
-        subtitle: "Jusqu'a -30% sur une selection",
-        image:
-          "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1600&q=80",
-      },
-      {
-        title: "Accessoires tendance",
-        subtitle: "Ajoutez la touche finale a votre tenue",
-        image:
-          "https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&w=1600&q=80",
-      },
-    ],
-    [],
-  );
-  const midPromoBanners = useMemo(() => {
-    const middleBanners = dynamicBanners
-      .filter((banner) => banner.isActive && banner.position === "middle" && Boolean(banner.image?.trim()))
-      .map((banner) => ({
-        title: banner.title,
-        subtitle: banner.subtitle || "Offre du moment",
-        image: banner.image,
-        link: banner.link?.trim() || "/categories",
-      }));
-    return middleBanners.length > 0
-      ? middleBanners
-      : fallbackMidPromoBanners.map((banner) => ({ ...banner, link: "/categories" }));
-  }, [dynamicBanners, fallbackMidPromoBanners]);
-
-  const visibleMidPromoBanners = useMemo(() => {
-    if (midPromoBanners.length === 0) {
-      return fallbackMidPromoBanners.slice(0, 3).map((banner) => ({
-        ...banner,
-        link: "/categories",
-      }));
-    }
-    return Array.from({ length: 3 }, (_, offset) => {
-      return midPromoBanners[(midBannerIndex + offset) % midPromoBanners.length]!;
-    });
-  }, [fallbackMidPromoBanners, midBannerIndex, midPromoBanners]);
-
-  useEffect(() => {
-    if (midPromoBanners.length <= 1) {
-      return;
-    }
-    const timer = window.setInterval(() => {
-      setMidBannerIndex((previous) => (previous + 1) % midPromoBanners.length);
-    }, 3500);
-    return () => window.clearInterval(timer);
-  }, [midPromoBanners.length]);
-
-  useEffect(() => {
-    setMidBannerIndex((previous) =>
-      midPromoBanners.length === 0 ? 0 : Math.min(previous, midPromoBanners.length - 1),
-    );
-  }, [midPromoBanners.length]);
 
   useEffect(() => {
     let active = true;
@@ -382,7 +305,15 @@ export default function Home() {
     [showAllSubcategories, subcategoryHighlights],
   );
   const productsByCategory = useMemo(() => {
+    const seenSlugs = new Set<string>();
     return activeCategoryCards
+      .filter((category) => {
+        if (seenSlugs.has(category.slug)) {
+          return false;
+        }
+        seenSlugs.add(category.slug);
+        return true;
+      })
       .map((category) => ({
         category: category.name,
         slug: category.slug,
@@ -727,7 +658,7 @@ export default function Home() {
           </div>
           <div className="space-y-5">
           {productsByCategory.map((group) => (
-            <div key={`group-wrap-${group.category}`} className="space-y-5">
+            <div key={`group-wrap-${group.slug}`} className="space-y-5">
               <section
                 className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
               >
@@ -747,7 +678,7 @@ export default function Home() {
                     {group.items.map((product) => {
                       return (
                       <article
-                        key={`group-item-${group.category}-${product.id}`}
+                        key={`group-item-${group.slug}-${product.id}`}
                         className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg"
                       >
                         <Link href={`/ventes-flash/${product.id}`} className="block">
@@ -853,37 +784,6 @@ export default function Home() {
                     </span>
                   </div>
                 </Link>
-              ) : null}
-
-              {group.category === "Jean Mermoz" ? (
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-                  <div className="grid gap-3 md:grid-cols-3">
-                    {visibleMidPromoBanners.map((banner) => (
-                      <Link
-                        key={`${banner.title}-${midBannerIndex}`}
-                        href={banner.link || "/categories"}
-                        className="group relative h-48 overflow-hidden rounded-xl"
-                      >
-                        <Image
-                          src={banner.image}
-                          alt={banner.title}
-                          fill
-                          className="object-cover transition duration-500 group-hover:scale-105"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                          unoptimized={
-                            banner.image.startsWith("data:") ||
-                            banner.image.startsWith("/api/media/")
-                          }
-                        />
-                        <div className="absolute inset-0 bg-black/35" />
-                        <div className="absolute inset-0 flex flex-col justify-end p-3 text-white">
-                          <p className="line-clamp-1 text-sm font-bold">{banner.title}</p>
-                          <p className="line-clamp-1 text-[11px] text-white/90">{banner.subtitle}</p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
               ) : null}
             </div>
           ))}
