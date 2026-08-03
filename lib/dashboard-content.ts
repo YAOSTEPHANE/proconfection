@@ -105,3 +105,7 @@ export const defaultSidebarBanners = defaultDashboardBanners.filter(
 export const defaultMiddleBanners = defaultDashboardBanners.filter(
   (banner) => banner.position === "middle",
 );
+
+export const defaultHeroBanners = defaultDashboardBanners.filter(
+  (banner) => banner.position === "hero",
+);

@@ -5,6 +5,12 @@ import type { DashboardBanner } from "@/lib/dashboard-content";
 import { materializeImageRef } from "@/lib/image-storage";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+};
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -49,10 +55,10 @@ export async function PUT(request: Request, { params }: Params) {
     const updated = await db
       .collection<DashboardBanner>("dashboard_banners")
       .findOne({ id }, { projection: { _id: 0 } });
-    return NextResponse.json(updated);
+    return NextResponse.json(updated, { headers: NO_STORE_HEADERS });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Connexion MongoDB impossible.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
 
@@ -65,9 +71,9 @@ export async function DELETE(_: Request, { params }: Params) {
     const db = await getDb();
     const result = await db.collection<DashboardBanner>("dashboard_banners").deleteOne({ id });
     if (result.deletedCount === 0) return NextResponse.json({ error: "Banniere introuvable." }, { status: 404 });
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Connexion MongoDB impossible.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }

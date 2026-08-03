@@ -180,15 +180,8 @@ export default function Home() {
         link: banner.link?.trim() || "/categories",
       }));
 
-    if (sidebarBanners.length === 0) {
-      return fallbackSideBanners;
-    }
-
-    // 1 ou 2 bannières admin : on complète avec le fallback si besoin.
-    return [
-      sidebarBanners[0] ?? fallbackSideBanners[0]!,
-      sidebarBanners[1] ?? fallbackSideBanners[1]!,
-    ];
+    // Uniquement les bannières admin — pas de mélange avec des images codées en dur.
+    return sidebarBanners.length > 0 ? sidebarBanners : fallbackSideBanners;
   }, [dynamicBanners, fallbackSideBanners]);
 
   useEffect(() => {

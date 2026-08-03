@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server";
 import { hasValidAdminSession } from "@/lib/auth";
 import { getDb } from "@/lib/mongodb";
-import { defaultDashboardBanners, defaultMiddleBanners, defaultSidebarBanners, type DashboardBanner } from "@/lib/dashboard-content";
+import {
+  defaultDashboardBanners,
+  defaultHeroBanners,
+  defaultMiddleBanners,
+  defaultSidebarBanners,
+  type DashboardBanner,
+} from "@/lib/dashboard-content";
 import { materializeImageRef, needsImageMaterialization } from "@/lib/image-storage";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+};
 
 type BannerInput = {
   title: string;
@@ -39,14 +51,16 @@ export async function GET() {
       .toArray();
     if (banners.length === 0) {
       await db.collection<DashboardBanner>("dashboard_banners").insertMany(defaultDashboardBanners);
-      return NextResponse.json(defaultDashboardBanners);
+      return NextResponse.json(defaultDashboardBanners, { headers: NO_STORE_HEADERS });
     }
 
-    // Assure les bannières latérales / milieu éditables si absentes.
+    // Assure les bannières éditables si absentes (sinon le site garde des fallbacks codés en dur).
+    const hasHero = banners.some((banner) => banner.position === "hero");
     const hasSidebar = banners.some((banner) => banner.position === "sidebar");
     const hasMiddle = banners.some((banner) => banner.position === "middle");
     let allBanners: DashboardBanner[] = [...banners];
     const toInsert: DashboardBanner[] = [];
+    if (!hasHero) toInsert.push(...defaultHeroBanners);
     if (!hasSidebar) toInsert.push(...defaultSidebarBanners);
     if (!hasMiddle) toInsert.push(...defaultMiddleBanners);
     if (toInsert.length > 0) {
@@ -70,10 +84,10 @@ export async function GET() {
       lightweight.push({ ...banner, image });
     }
 
-    return NextResponse.json(lightweight);
+    return NextResponse.json(lightweight, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.warn("GET /api/banners fallback vers defaultDashboardBanners:", error);
-    return NextResponse.json(defaultDashboardBanners);
+    return NextResponse.json(defaultDashboardBanners, { headers: NO_STORE_HEADERS });
   }
 }
 
@@ -93,9 +107,9 @@ export async function POST(request: Request) {
     };
     const db = await getDb();
     await db.collection<DashboardBanner>("dashboard_banners").insertOne(banner);
-    return NextResponse.json(banner, { status: 201 });
+    return NextResponse.json(banner, { status: 201, headers: NO_STORE_HEADERS });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Connexion MongoDB impossible.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }

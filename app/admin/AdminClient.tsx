@@ -738,7 +738,7 @@ export default function AdminClient() {
     async function loadDashboardBanners() {
       setBannersLoading(true);
       try {
-        const response = await fetch("/api/banners");
+        const response = await fetch("/api/banners", { cache: "no-store" });
         const data = (await response.json()) as DashboardBanner[] | { error?: string };
         if (!response.ok || !Array.isArray(data)) {
           throw new Error(!Array.isArray(data) ? data.error : "Chargement bannieres impossible.");
